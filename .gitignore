@@ -1,0 +1,14 @@
+node_modules
+.env
+artifacts
+cache
+dist
+frontend/.next
+frontend/node_modules
+
+# Claude / AI agent files
+PLAN.md
+CLAUDE.md
+AGENTS.md
+**/CLAUDE.md
+**/AGENTS.md
