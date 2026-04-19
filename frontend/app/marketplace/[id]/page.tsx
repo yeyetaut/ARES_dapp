@@ -1,12 +1,12 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Nav } from "@/components/Nav";
 import {
   ADDRESSES, MARKETPLACE_ABI, ESCROW_ABI, MOCK_USDC_ABI, DIGITAL_TWIN_ABI,
-  ESCROW_STATE, USDC_SCALE, isDeployed,
+  VERIFIER_ABI, ESCROW_STATE, USDC_SCALE, isDeployed,
 } from "@/lib/contracts";
 
 // ─── Escrow status badge ──────────────────────────────────────────────────────
@@ -91,6 +91,88 @@ function BuyButton({ listingId, price }: { listingId: bigint; price: bigint }) {
   );
 }
 
+// ─── Verification panel ───────────────────────────────────────────────────────
+
+function VerificationPanel({ escrowId }: { escrowId: bigint }) {
+  const { address } = useAccount();
+  const [nfcTag, setNfcTag] = useState("");
+
+  const { data: att } = useReadContract({
+    address: ADDRESSES.verifier,
+    abi: VERIFIER_ABI,
+    functionName: "getAttestation",
+    args: [escrowId],
+    query: { enabled: isDeployed(ADDRESSES.verifier) },
+  });
+
+  const { data: nodeInfo } = useReadContract({
+    address: ADDRESSES.verifier,
+    abi: VERIFIER_ABI,
+    functionName: "getNode",
+    args: [address ?? "0x0"],
+    query: { enabled: !!address && isDeployed(ADDRESSES.verifier) },
+  });
+
+  const { writeContract: submit, data: submitTxHash } = useWriteContract();
+  const { isLoading: submitting, isSuccess: submitted } = useWaitForTransactionReceipt({ hash: submitTxHash });
+
+  function handleVerify() {
+    if (!nfcTag) return;
+    import("viem").then(({ keccak256, toBytes }) => {
+      const hash = keccak256(toBytes(nfcTag));
+      submit({
+        address: ADDRESSES.verifier,
+        abi: VERIFIER_ABI,
+        functionName: "submitVerification",
+        args: [escrowId, hash as `0x${string}`],
+      });
+    });
+  }
+
+  if (!isDeployed(ADDRESSES.verifier)) return null;
+
+  return (
+    <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">DePIN Verification</h3>
+        <span className={`rounded px-2 py-0.5 text-xs font-medium ${att?.finalized ? "bg-green-900/50 text-green-300" : "bg-yellow-900/50 text-yellow-300"}`}>
+          {att?.finalized ? "Verified" : "Awaiting Verification"}
+        </span>
+      </div>
+
+      {att?.finalized ? (
+        <div className="text-xs text-gray-500">
+          <p>Node: <span className="font-mono text-gray-400">{att.node.slice(0, 10)}…{att.node.slice(-8)}</span></p>
+          <p className="mt-1 break-all">Hash: <span className="font-mono text-gray-400">{att.nfcHash}</span></p>
+        </div>
+      ) : nodeInfo?.active && !submitted ? (
+        <div className="flex flex-col gap-2">
+          <input
+            type="text"
+            placeholder="NFC tag data"
+            value={nfcTag}
+            onChange={e => setNfcTag(e.target.value)}
+            className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs font-mono focus:outline-none focus:border-indigo-500"
+          />
+          <button
+            disabled={submitting || !nfcTag}
+            onClick={handleVerify}
+            className="rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 text-xs font-semibold transition-colors"
+          >
+            {submitting ? "Submitting…" : "Submit Verification"}
+          </button>
+        </div>
+      ) : submitted ? (
+        <p className="text-xs text-green-400">Verification submitted. Trade settled.</p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          Only registered verifier nodes can submit. <a href="/verify" className="text-indigo-400 hover:underline">Register →</a>
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Item detail page ─────────────────────────────────────────────────────────
 
 export default function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -113,8 +195,36 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
     query: { enabled: !!listing && listing.twinId > 0n },
   });
 
-  // Find active escrow for this listing (escrow IDs ≥ 1, check escrowListing mapping)
-  // For Phase 2 we display escrow details if the listing is sold.
+  // escrowId lookup: Marketplace stores escrowListing[escrowId] → listingId (not reverse).
+  // We read total escrow count then batch-check the last few IDs to find a match.
+  const [escrowIdOverride, setEscrowIdOverride] = useState<string>("");
+
+  const { data: escrowCount } = useReadContract({
+    address: ADDRESSES.escrow,
+    abi: ESCROW_ABI,
+    functionName: "escrowCount",
+  });
+
+  // Try up to the last 20 escrows to find one that maps to this listingId
+  const escrowCheckIds = escrowCount
+    ? Array.from({ length: Math.min(Number(escrowCount), 20) }, (_, i) => escrowCount - BigInt(i))
+    : [];
+
+  const { data: escrowMappings } = useReadContracts?.({
+    contracts: escrowCheckIds.map(eid => ({
+      address: ADDRESSES.marketplace,
+      abi: MARKETPLACE_ABI,
+      functionName: "escrowListing" as const,
+      args: [eid] as const,
+    })),
+    query: { enabled: escrowCheckIds.length > 0 },
+  }) ?? { data: undefined };
+
+  const resolvedEscrowId: bigint | undefined = escrowIdOverride
+    ? BigInt(escrowIdOverride)
+    : escrowMappings
+        ?.map((r, i) => ({ result: r.result as bigint | undefined, id: escrowCheckIds[i] }))
+        .find(({ result }) => result === listingId)?.id;
 
   const isSeller = address?.toLowerCase() === listing?.seller.toLowerCase();
   const priceUSDC = listing ? listing.price / USDC_SCALE : 0n;
@@ -211,6 +321,27 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
 
             {!listing.active && !isSeller && (
               <p className="text-sm text-gray-500">This listing is no longer active.</p>
+            )}
+
+            {/* Phase 3: verification panel for sold listings */}
+            {!listing.active && (
+              resolvedEscrowId
+                ? <VerificationPanel escrowId={resolvedEscrowId} />
+                : (
+                  <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 flex flex-col gap-2">
+                    <p className="text-xs text-gray-500">Enter escrow ID to check verification status:</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Escrow ID"
+                        value={escrowIdOverride}
+                        onChange={e => setEscrowIdOverride(e.target.value)}
+                        className="flex-1 rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )
             )}
           </div>
         </div>

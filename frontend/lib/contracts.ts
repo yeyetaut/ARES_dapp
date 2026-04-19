@@ -3,11 +3,12 @@
 // or set them via NEXT_PUBLIC_* environment variables.
 
 export const ADDRESSES = {
-  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS    ?? "") as `0x${string}`,
-  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS    ?? "") as `0x${string}`,
-  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS  ?? "") as `0x${string}`,
-  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS  ?? "") as `0x${string}`,
-  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS ?? "") as `0x${string}`,
+  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS      ?? "") as `0x${string}`,
+  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS      ?? "") as `0x${string}`,
+  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS    ?? "") as `0x${string}`,
+  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS    ?? "") as `0x${string}`,
+  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS  ?? "") as `0x${string}`,
+  verifier:    (process.env.NEXT_PUBLIC_VERIFIER_ADDRESS  ?? "") as `0x${string}`,
 } as const;
 
 export const USDC_DECIMALS = 6n;
@@ -111,6 +112,44 @@ export const AGENT_ACCOUNT_ABI = [
   { name: "dailySpent",     type: "function", stateMutability: "view",       inputs: [],                                                                                              outputs: [{ type: "uint256" }] },
   { name: "setPolicy",      type: "function", stateMutability: "nonpayable", inputs: [{ name: "_maxSingleTrade", type: "uint256" }, { name: "_dailyBudget", type: "uint256" }],      outputs: [] },
   { name: "setExecutor",    type: "function", stateMutability: "nonpayable", inputs: [{ name: "executor", type: "address" }, { name: "authorised", type: "bool" }],                 outputs: [] },
+] as const;
+
+export const VERIFIER_ABI = [
+  {
+    name: "getNode",
+    type: "function", stateMutability: "view",
+    inputs:  [{ name: "nodeAddr", type: "address" }],
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "stake",  type: "uint256" },
+        { name: "active", type: "bool"    },
+      ],
+    }],
+  },
+  {
+    name: "getAttestation",
+    type: "function", stateMutability: "view",
+    inputs:  [{ name: "escrowId", type: "uint256" }],
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "node",      type: "address" },
+        { name: "nfcHash",   type: "bytes32" },
+        { name: "finalized", type: "bool"    },
+      ],
+    }],
+  },
+  { name: "MIN_STAKE",          type: "function", stateMutability: "view",       inputs: [],                                                                                       outputs: [{ type: "uint256" }] },
+  { name: "registerNode",       type: "function", stateMutability: "nonpayable", inputs: [{ name: "amount", type: "uint256" }],                                                   outputs: [] },
+  { name: "deregisterNode",     type: "function", stateMutability: "nonpayable", inputs: [],                                                                                       outputs: [] },
+  { name: "submitVerification", type: "function", stateMutability: "nonpayable", inputs: [{ name: "escrowId", type: "uint256" }, { name: "nfcHash", type: "bytes32" }],           outputs: [] },
+  { name: "challengeVerification", type: "function", stateMutability: "nonpayable", inputs: [{ name: "escrowId", type: "uint256" }, { name: "slashAmt", type: "uint256" }],       outputs: [] },
+  { name: "slash",              type: "function", stateMutability: "nonpayable", inputs: [{ name: "node", type: "address" }, { name: "amount", type: "uint256" }, { name: "reason", type: "string" }], outputs: [] },
+  { name: "NodeRegistered",     type: "event",    inputs: [{ name: "node",    type: "address", indexed: true }, { name: "stake",   type: "uint256", indexed: false }] },
+  { name: "NodeDeregistered",   type: "event",    inputs: [{ name: "node",    type: "address", indexed: true }, { name: "returned", type: "uint256", indexed: false }] },
+  { name: "VerificationSubmitted", type: "event", inputs: [{ name: "escrowId", type: "uint256", indexed: true }, { name: "node", type: "address", indexed: true }, { name: "nfcHash", type: "bytes32", indexed: false }] },
+  { name: "NodeSlashed",        type: "event",    inputs: [{ name: "node",    type: "address", indexed: true }, { name: "amount", type: "uint256", indexed: false }, { name: "reason", type: "string", indexed: false }] },
 ] as const;
 
 // ─── Escrow state enum ─────────────────────────────────────────────────────────
