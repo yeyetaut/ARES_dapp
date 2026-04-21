@@ -3,12 +3,14 @@
 // or set them via NEXT_PUBLIC_* environment variables.
 
 export const ADDRESSES = {
-  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS      ?? "") as `0x${string}`,
-  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS      ?? "") as `0x${string}`,
-  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS    ?? "") as `0x${string}`,
-  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS    ?? "") as `0x${string}`,
-  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS  ?? "") as `0x${string}`,
-  verifier:    (process.env.NEXT_PUBLIC_VERIFIER_ADDRESS  ?? "") as `0x${string}`,
+  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS        ?? "") as `0x${string}`,
+  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS        ?? "") as `0x${string}`,
+  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS      ?? "") as `0x${string}`,
+  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS      ?? "") as `0x${string}`,
+  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS    ?? "") as `0x${string}`,
+  verifier:    (process.env.NEXT_PUBLIC_VERIFIER_ADDRESS    ?? "") as `0x${string}`,
+  reputation:  (process.env.NEXT_PUBLIC_REPUTATION_ADDRESS  ?? "") as `0x${string}`,
+  staking:     (process.env.NEXT_PUBLIC_STAKING_ADDRESS     ?? "") as `0x${string}`,
 } as const;
 
 export const USDC_DECIMALS = 6n;
@@ -150,6 +152,55 @@ export const VERIFIER_ABI = [
   { name: "NodeDeregistered",   type: "event",    inputs: [{ name: "node",    type: "address", indexed: true }, { name: "returned", type: "uint256", indexed: false }] },
   { name: "VerificationSubmitted", type: "event", inputs: [{ name: "escrowId", type: "uint256", indexed: true }, { name: "node", type: "address", indexed: true }, { name: "nfcHash", type: "bytes32", indexed: false }] },
   { name: "NodeSlashed",        type: "event",    inputs: [{ name: "node",    type: "address", indexed: true }, { name: "amount", type: "uint256", indexed: false }, { name: "reason", type: "string", indexed: false }] },
+] as const;
+
+export const REPUTATION_ABI = [
+  {
+    name: "statsOf",
+    type: "function", stateMutability: "view",
+    inputs:  [{ name: "user", type: "address" }],
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "score",           type: "int256"  },
+        { name: "completedTrades", type: "uint256" },
+        { name: "verifications",   type: "uint256" },
+        { name: "disputes",        type: "uint256" },
+      ],
+    }],
+  },
+  { name: "tokenOf",        type: "function", stateMutability: "view",       inputs: [{ name: "user",   type: "address" }],                                             outputs: [{ type: "uint256" }] },
+  { name: "authorized",     type: "function", stateMutability: "view",       inputs: [{ name: "caller", type: "address" }],                                             outputs: [{ type: "bool"    }] },
+  { name: "setAuthorized",  type: "function", stateMutability: "nonpayable", inputs: [{ name: "caller", type: "address" }, { name: "status", type: "bool" }],           outputs: [] },
+  { name: "ReputationMinted", type: "event",  inputs: [{ name: "user",    type: "address", indexed: true }, { name: "tokenId", type: "uint256", indexed: true }] },
+  { name: "ScoreUpdated",     type: "event",  inputs: [{ name: "user",    type: "address", indexed: true }, { name: "delta",   type: "int256",  indexed: false }, { name: "newScore", type: "int256", indexed: false }] },
+] as const;
+
+export const STAKING_ABI = [
+  {
+    name: "getStake",
+    type: "function", stateMutability: "view",
+    inputs:  [{ name: "staker", type: "address" }],
+    outputs: [{
+      type: "tuple",
+      components: [
+        { name: "amount",              type: "uint256" },
+        { name: "unstakeInitiatedAt",  type: "uint256" },
+      ],
+    }],
+  },
+  { name: "MIN_STAKE",       type: "function", stateMutability: "view",       inputs: [],                                                                                                       outputs: [{ type: "uint256" }] },
+  { name: "COOLDOWN",        type: "function", stateMutability: "view",       inputs: [],                                                                                                       outputs: [{ type: "uint256" }] },
+  { name: "cooldownEnd",     type: "function", stateMutability: "view",       inputs: [{ name: "staker", type: "address" }],                                                                    outputs: [{ type: "uint256" }] },
+  { name: "totalStaked",     type: "function", stateMutability: "view",       inputs: [],                                                                                                       outputs: [{ type: "uint256" }] },
+  { name: "stake",           type: "function", stateMutability: "nonpayable", inputs: [{ name: "amount", type: "uint256" }],                                                                    outputs: [] },
+  { name: "initiateUnstake", type: "function", stateMutability: "nonpayable", inputs: [],                                                                                                       outputs: [] },
+  { name: "completeUnstake", type: "function", stateMutability: "nonpayable", inputs: [],                                                                                                       outputs: [] },
+  { name: "slash",           type: "function", stateMutability: "nonpayable", inputs: [{ name: "staker", type: "address" }, { name: "amount", type: "uint256" }, { name: "reason", type: "string" }], outputs: [] },
+  { name: "Staked",           type: "event", inputs: [{ name: "staker", type: "address", indexed: true }, { name: "amount",  type: "uint256", indexed: false }, { name: "total", type: "uint256", indexed: false }] },
+  { name: "UnstakeInitiated", type: "event", inputs: [{ name: "staker", type: "address", indexed: true }, { name: "amount",  type: "uint256", indexed: false }, { name: "cooldownEnd", type: "uint256", indexed: false }] },
+  { name: "Unstaked",         type: "event", inputs: [{ name: "staker", type: "address", indexed: true }, { name: "amount",  type: "uint256", indexed: false }] },
+  { name: "Slashed",          type: "event", inputs: [{ name: "staker", type: "address", indexed: true }, { name: "amount",  type: "uint256", indexed: false }, { name: "reason", type: "string", indexed: false }] },
 ] as const;
 
 // ─── Escrow state enum ─────────────────────────────────────────────────────────

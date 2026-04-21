@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./DigitalTwin.sol";
 import "./Escrow.sol";
+import "./Reputation.sol";
 
 /// @title Marketplace
 /// @notice ARES listing and order-matching contract.
@@ -37,6 +38,9 @@ contract Marketplace is Ownable, IERC721Receiver {
 
     /// @notice Authorised verifier addresses (Phase 3: Verifier contract).
     mapping(address => bool) public verifiers;
+
+    /// @notice Optional reputation contract — set via setReputation() after deployment.
+    Reputation public reputation;
 
     uint256 private _nextListingId;
     mapping(uint256 => Listing) private _listings;
@@ -89,6 +93,11 @@ contract Marketplace is Ownable, IERC721Receiver {
     function setVerifier(address verifier, bool authorised) external onlyOwner {
         verifiers[verifier] = authorised;
         emit VerifierUpdated(verifier, authorised);
+    }
+
+    /// @notice Set the Reputation contract address (Phase 4). Pass address(0) to disable.
+    function setReputation(address _reputation) external onlyOwner {
+        reputation = Reputation(_reputation);
     }
 
     // ── Listing management ────────────────────────────────────────────────────
@@ -169,6 +178,11 @@ contract Marketplace is Ownable, IERC721Receiver {
         // Transfer NFT from this contract's custody to the buyer
         digitalTwin.safeTransferFrom(address(this), rec.buyer, rec.twinId);
 
+        // Phase 4: update reputation scores
+        if (address(reputation) != address(0)) {
+            reputation.recordTrade(rec.buyer, rec.seller);
+        }
+
         emit DeliveryConfirmed(escrowId, rec.buyer);
     }
 
@@ -184,6 +198,11 @@ contract Marketplace is Ownable, IERC721Receiver {
         } else {
             escrow.release(escrowId);
             digitalTwin.safeTransferFrom(address(this), rec.buyer, rec.twinId);
+        }
+
+        // Phase 4: update reputation scores
+        if (address(reputation) != address(0)) {
+            reputation.recordDispute(rec.buyer, rec.seller, refundBuyer);
         }
 
         emit DisputeResolved(escrowId, refundBuyer);

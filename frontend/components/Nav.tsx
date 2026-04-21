@@ -6,8 +6,10 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/marketplace", label: "Marketplace" },
-  { href: "/dashboard",   label: "Dashboard" },
+  { href: "/dashboard",   label: "Dashboard"   },
   { href: "/verify",      label: "Verify"      },
+  { href: "/reputation",  label: "Reputation"  },
+  { href: "/staking",     label: "Staking"     },
 ];
 
 export function Nav() {

@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./DigitalTwin.sol";
 import "./Escrow.sol";
 import "./Marketplace.sol";
+import "./Reputation.sol";
 
 /// @title Verifier
 /// @notice DePIN verification hub for the ARES marketplace.
@@ -52,6 +53,9 @@ contract Verifier is Ownable {
 
     mapping(address  => Node)        public nodes;
     mapping(uint256  => Attestation) public attestations; // escrowId → attestation
+
+    /// @notice Optional reputation contract — set via setReputation() after deployment.
+    Reputation public reputation;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -140,6 +144,11 @@ contract Verifier is Ownable {
 
         emit VerificationSubmitted(escrowId, msg.sender, nfcHash);
 
+        // Phase 4: reward verifier node
+        if (address(reputation) != address(0)) {
+            reputation.recordVerification(msg.sender);
+        }
+
         // Trigger settlement: Marketplace releases escrow + transfers NFT
         marketplace.confirmDelivery(escrowId);
     }
@@ -156,6 +165,12 @@ contract Verifier is Ownable {
         Attestation storage att = attestations[escrowId];
         if (!att.finalized) revert NotVerified();
         uint256 slashed = _slash(att.node, slashAmt, "challenged verification");
+
+        // Phase 4: penalise node reputation
+        if (address(reputation) != address(0)) {
+            reputation.recordChallenge(att.node);
+        }
+
         emit VerificationChallenged(escrowId, att.node, slashed);
     }
 
@@ -168,6 +183,11 @@ contract Verifier is Ownable {
     }
 
     // ── View ──────────────────────────────────────────────────────────────────
+
+    /// @notice Set the Reputation contract address (Phase 4). Pass address(0) to disable.
+    function setReputation(address _reputation) external onlyOwner {
+        reputation = Reputation(_reputation);
+    }
 
     function getNode(address nodeAddr) external view returns (Node memory) {
         return nodes[nodeAddr];
