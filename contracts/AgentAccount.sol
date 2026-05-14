@@ -36,22 +36,45 @@ contract AgentAccount is IERC6551Account, IERC165, IERC721Receiver {
     uint256 public dailySpent;
     uint256 public dayStart;
 
+    /// @notice Auto-buy policy details
+    struct AutoBuyPolicy {
+        uint256 maxPrice;
+        bool active;
+    }
+    AutoBuyPolicy public autoBuyPolicy;
+
     /// @notice Authorised callers that can execute autonomous buys (off-chain agent service).
     mapping(address => bool) public authorisedExecutors;
 
     event Executed(address indexed target, uint256 value, bytes data);
     event PolicyUpdated(uint256 maxSingleTrade, uint256 dailyBudget);
+    event AutoBuyPolicyUpdated(uint256 maxPrice, bool active);
     event ExecutorUpdated(address indexed executor, bool authorised);
 
     error NotOwner();
     error NotAuthorised();
     error PolicyViolation(string reason);
 
-    constructor(uint256 _chainId, address _tokenContract, uint256 _tokenId) {
+    constructor(
+        uint256 _chainId,
+        address _tokenContract,
+        uint256 _tokenId,
+        uint256 _maxSingleTrade,
+        uint256 _dailyBudget,
+        uint256 _autoBuyPrice,
+        bool _autoBuyActive
+    ) {
         chainId = _chainId;
         tokenContract = _tokenContract;
         tokenId = _tokenId;
         dayStart = block.timestamp;
+
+        maxSingleTrade = _maxSingleTrade;
+        dailyBudget = _dailyBudget;
+        autoBuyPolicy = AutoBuyPolicy({
+            maxPrice: _autoBuyPrice,
+            active: _autoBuyActive
+        });
     }
 
     // ── Ownership ───────────────────────────────────────────────────────────
@@ -107,19 +130,43 @@ contract AgentAccount is IERC6551Account, IERC165, IERC721Receiver {
         address to,
         uint256 amount
     ) external onlyOwnerOrExecutor {
-        _resetDayIfNeeded();
-
-        if (maxSingleTrade > 0 && amount > maxSingleTrade)
-            revert PolicyViolation("exceeds maxSingleTrade");
-
-        if (dailyBudget > 0 && dailySpent + amount > dailyBudget)
-            revert PolicyViolation("exceeds dailyBudget");
-
-        dailySpent += amount;
+        _checkAndUpdateBudget(amount);
         ++state;
 
         bool ok = IERC20(usdc).transfer(to, amount);
         require(ok, "AgentAccount: USDC transfer failed");
+    }
+
+    /// @notice Execute an autonomous buy from the Marketplace.
+    ///         Only authorised executors can call this, and it must satisfy the AutoBuyPolicy.
+    /// @param marketplace  Address of the ARES Marketplace.
+    /// @param escrow       Address of the ARES Escrow (to approve USDC).
+    /// @param usdc         Address of the USDC token.
+    /// @param listingId    The listing ID to purchase.
+    function executeAutoBuy(
+        address marketplace,
+        address escrow,
+        address usdc,
+        uint256 listingId
+    ) external onlyOwnerOrExecutor {
+        if (!autoBuyPolicy.active) revert PolicyViolation("auto-buy inactive");
+
+        // Interface with Marketplace to get price
+        // Note: Marketplace.Listing struct is (twinId, seller, price, active)
+        (,, uint256 price, bool active) = IMarketplace(marketplace).getListing(listingId);
+        
+        if (!active) revert PolicyViolation("listing not active");
+        if (price > autoBuyPolicy.maxPrice) revert PolicyViolation("price exceeds maxPrice");
+
+        _checkAndUpdateBudget(price);
+
+        // 1. Approve USDC to Escrow
+        IERC20(usdc).approve(escrow, price);
+
+        // 2. Buy item
+        IMarketplace(marketplace).buyItem(listingId);
+
+        ++state;
     }
 
     // ── Policy management ───────────────────────────────────────────────────
@@ -133,6 +180,17 @@ contract AgentAccount is IERC6551Account, IERC165, IERC721Receiver {
         emit PolicyUpdated(_maxSingleTrade, _dailyBudget);
     }
 
+    /// @notice Set the auto-buy policy for off-chain agents.
+    /// @param _maxPrice Maximum price the agent is allowed to pay for an item.
+    /// @param _active   Enable or disable autonomous buying.
+    function setAutoBuyPolicy(uint256 _maxPrice, bool _active) external onlyOwner {
+        autoBuyPolicy = AutoBuyPolicy({
+            maxPrice: _maxPrice,
+            active: _active
+        });
+        emit AutoBuyPolicyUpdated(_maxPrice, _active);
+    }
+
     /// @notice Grant or revoke executor rights to an address.
     function setExecutor(address executor, bool authorised) external onlyOwner {
         authorisedExecutors[executor] = authorised;
@@ -140,6 +198,18 @@ contract AgentAccount is IERC6551Account, IERC165, IERC721Receiver {
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
+
+    function _checkAndUpdateBudget(uint256 amount) internal {
+        _resetDayIfNeeded();
+
+        if (maxSingleTrade > 0 && amount > maxSingleTrade)
+            revert PolicyViolation("exceeds maxSingleTrade");
+
+        if (dailyBudget > 0 && dailySpent + amount > dailyBudget)
+            revert PolicyViolation("exceeds dailyBudget");
+
+        dailySpent += amount;
+    }
 
     function _resetDayIfNeeded() internal {
         if (block.timestamp >= dayStart + 1 days) {
@@ -164,4 +234,9 @@ contract AgentAccount is IERC6551Account, IERC165, IERC721Receiver {
     }
 
     receive() external payable {}
+}
+
+interface IMarketplace {
+    function getListing(uint256 listingId) external view returns (uint256 twinId, address seller, uint256 price, bool active);
+    function buyItem(uint256 listingId) external returns (uint256 escrowId);
 }

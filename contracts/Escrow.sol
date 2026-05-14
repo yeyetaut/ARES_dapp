@@ -58,6 +58,9 @@ contract Escrow {
     error WrongState(EscrowState current);
     error TimeoutNotReached();
     error TransferFailed();
+    error ZeroAmount();
+    error MarketplaceAlreadySet();
+    error NotSeller();
 
     // ── Modifiers ─────────────────────────────────────────────────────────────
 
@@ -74,7 +77,7 @@ contract Escrow {
 
     /// @notice Set the authorised Marketplace address. Can only be set once.
     function setMarketplace(address _marketplace) external {
-        require(marketplace == address(0), "Escrow: marketplace already set");
+        if (marketplace != address(0)) revert MarketplaceAlreadySet();
         marketplace = _marketplace;
     }
 
@@ -90,7 +93,7 @@ contract Escrow {
         uint256 twinId,
         uint256 amount
     ) external onlyMarketplace returns (uint256 escrowId) {
-        require(amount > 0, "Escrow: amount must be > 0");
+        if (amount == 0) revert ZeroAmount();
 
         bool ok = usdc.transferFrom(buyer, address(this), amount);
         if (!ok) revert TransferFailed();
@@ -149,7 +152,7 @@ contract Escrow {
     ///         This protects sellers from buyers who disappear after delivery.
     function claimTimeout(uint256 escrowId) external {
         EscrowRecord storage rec = _escrows[escrowId];
-        require(msg.sender == rec.seller, "Escrow: not seller");
+        if (msg.sender != rec.seller) revert NotSeller();
         if (rec.state != EscrowState.PENDING) revert WrongState(rec.state);
         if (block.timestamp < rec.createdAt + TIMEOUT) revert TimeoutNotReached();
 

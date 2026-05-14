@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { keccak256, toBytes } from "viem";
 import { Nav } from "@/components/Nav";
+import { useTxToast } from "@/hooks/useTxToast";
 import { ADDRESSES, MARKETPLACE_ABI, DIGITAL_TWIN_ABI, MOCK_USDC_ABI, USDC_SCALE, isDeployed } from "@/lib/contracts";
 
 type Step = "mint" | "approve" | "list" | "done";
@@ -24,11 +25,12 @@ export default function ListItemPage() {
 
   // ── Step 1: Mint Digital Twin ───────────────────────────────────────────────
 
-  const { writeContract: mint, data: mintTxHash } = useWriteContract();
-  const { isLoading: minting, isSuccess: minted } = useWaitForTransactionReceipt({
+  const { writeContract: mint, data: mintTxHash, error: mintErr } = useWriteContract();
+  const { isLoading: minting, isSuccess: minted, error: mintTxErr } = useWaitForTransactionReceipt({
     hash: mintTxHash,
     onReplaced: () => {},
   });
+  useTxToast("Mint Twin", mintErr, minted, mintTxErr);
 
   const nfcHash = nfcSeed ? keccak256(toBytes(nfcSeed)) : undefined;
 
@@ -42,13 +44,15 @@ export default function ListItemPage() {
 
   // ── Step 2: Approve Marketplace to transfer the NFT ────────────────────────
 
-  const { writeContract: approveNFT, data: approveTxHash } = useWriteContract();
-  const { isLoading: approvingNFT, isSuccess: approvedNFT } = useWaitForTransactionReceipt({ hash: approveTxHash });
+  const { writeContract: approveNFT, data: approveTxHash, error: approveErr } = useWriteContract();
+  const { isLoading: approvingNFT, isSuccess: approvedNFT, error: approveTxErr } = useWaitForTransactionReceipt({ hash: approveTxHash });
+  useTxToast("Approve NFT", approveErr, approvedNFT, approveTxErr);
 
   // ── Step 3: List item ──────────────────────────────────────────────────────
 
-  const { writeContract: list, data: listTxHash } = useWriteContract();
-  const { isLoading: listing, isSuccess: listed } = useWaitForTransactionReceipt({ hash: listTxHash });
+  const { writeContract: list, data: listTxHash, error: listErr } = useWriteContract();
+  const { isLoading: listing, isSuccess: listed, error: listTxErr } = useWaitForTransactionReceipt({ hash: listTxHash });
+  useTxToast("List Item", listErr, listed, listTxErr);
 
   if (!address) {
     return (

@@ -1,30 +1,24 @@
 import { assert } from "chai";
 import hre from "hardhat";
 import { keccak256, toUtf8Bytes } from "ethers";
-import type { NetworkConnection } from "hardhat/types/network";
-
-async function getConnection(): Promise<NetworkConnection> {
-  return hre.network.connect();
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared fixture
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function deployAll() {
-  const conn = await getConnection();
-  const [owner, seller, buyer, verifier, other] = await conn.ethers.getSigners();
+  const [owner, seller, buyer, verifier, other] = await hre.ethers.getSigners();
 
-  const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", owner);
+  const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", owner);
   const usdc = await MockUSDC.deploy();
 
-  const DigitalTwin = await conn.ethers.getContractFactory("DigitalTwin", owner);
+  const DigitalTwin = await hre.ethers.getContractFactory("DigitalTwin", owner);
   const twin = await DigitalTwin.deploy();
 
-  const Escrow = await conn.ethers.getContractFactory("Escrow", owner);
+  const Escrow = await hre.ethers.getContractFactory("Escrow", owner);
   const escrow = await Escrow.deploy(await usdc.getAddress());
 
-  const Marketplace = await conn.ethers.getContractFactory("Marketplace", owner);
+  const Marketplace = await hre.ethers.getContractFactory("Marketplace", owner);
   const marketplace = await Marketplace.deploy(
     await twin.getAddress(),
     await escrow.getAddress()
@@ -40,7 +34,7 @@ async function deployAll() {
   await usdc.connect(seller).faucet();   // 1000 USDC
   await usdc.connect(buyer).faucet();    // 1000 USDC
 
-  return { usdc, twin, escrow, marketplace, owner, seller, buyer, verifier, other, conn };
+  return { usdc, twin, escrow, marketplace, owner, seller, buyer, verifier, other };
 }
 
 /// Helper: mint a DigitalTwin to the seller and approve Marketplace to hold it.
@@ -70,7 +64,7 @@ describe("Escrow", function () {
       await escrow.setMarketplace(other.address);
       assert.fail("Expected revert");
     } catch (e: any) {
-      assert.match(e.message, /already set/i);
+      assert.include(e.message, "MarketplaceAlreadySet");
     }
   });
 
@@ -347,19 +341,18 @@ describe("Escrow timeout", function () {
   });
 
   it("seller can claimTimeout after 30 days", async function () {
-    const conn = await getConnection();
-    const [owner, seller, buyer] = await conn.ethers.getSigners();
+    const [owner, seller, buyer] = await hre.ethers.getSigners();
 
-    const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", owner);
+    const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", owner);
     const usdc = await MockUSDC.deploy();
 
-    const DigitalTwin = await conn.ethers.getContractFactory("DigitalTwin", owner);
+    const DigitalTwin = await hre.ethers.getContractFactory("DigitalTwin", owner);
     const twin = await DigitalTwin.deploy();
 
-    const Escrow = await conn.ethers.getContractFactory("Escrow", owner);
+    const Escrow = await hre.ethers.getContractFactory("Escrow", owner);
     const escrow = await Escrow.deploy(await usdc.getAddress());
 
-    const Marketplace = await conn.ethers.getContractFactory("Marketplace", owner);
+    const Marketplace = await hre.ethers.getContractFactory("Marketplace", owner);
     const marketplace = await Marketplace.deploy(await twin.getAddress(), await escrow.getAddress());
 
     await escrow.setMarketplace(await marketplace.getAddress());
@@ -377,8 +370,8 @@ describe("Escrow timeout", function () {
     await marketplace.connect(buyer).buyItem(1n);
 
     // Fast-forward 30 days + 1 second
-    await conn.provider.send("evm_increaseTime", [30 * 24 * 60 * 60 + 1]);
-    await conn.provider.send("evm_mine", []);
+    await hre.network.provider.send("evm_increaseTime", [30 * 24 * 60 * 60 + 1]);
+    await hre.network.provider.send("evm_mine", []);
 
     const sellerBalBefore = await usdc.balanceOf(seller.address);
     await escrow.connect(seller).claimTimeout(1n);
@@ -388,3 +381,4 @@ describe("Escrow timeout", function () {
     assert.equal((await escrow.getEscrow(1n)).state, 1n); // RELEASED
   });
 });
+

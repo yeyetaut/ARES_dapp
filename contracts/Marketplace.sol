@@ -72,6 +72,7 @@ contract Marketplace is Ownable, IERC721Receiver {
     error NotActive();
     error NotAuthorised();
     error SelfPurchase();
+    error ZeroPrice();
 
     // ── Modifiers ─────────────────────────────────────────────────────────────
 
@@ -112,7 +113,7 @@ contract Marketplace is Ownable, IERC721Receiver {
         uint256 price,
         string calldata metadataURI
     ) external returns (uint256 listingId) {
-        require(price > 0, "Marketplace: price must be > 0");
+        if (price == 0) revert ZeroPrice();
 
         // Pull NFT into custody — seller must have approved this contract first.
         digitalTwin.safeTransferFrom(msg.sender, address(this), twinId);
