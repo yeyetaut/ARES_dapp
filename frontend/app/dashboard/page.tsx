@@ -13,6 +13,8 @@ import {
   Cpu, Wallet, ClockCounterClockwise as History, Plus, CaretRight, Info,
   TrendUp, ShieldCheck, Gear, Coins, Robot 
 } from "@phosphor-icons/react";
+import { useTxToast } from "@/hooks/useTxToast";
+import { Toaster } from "react-hot-toast";
 
 // ─── Agent card ───────────────────────────────────────────────────────────────
 
@@ -237,11 +239,14 @@ function OnboardingModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => 
     query: { enabled: !!address },
   });
 
-  const { writeContract: approve, data: approveTxHash } = useWriteContract();
-  const { isLoading: isApproving, isSuccess: isApproved } = useWaitForTransactionReceipt({ hash: approveTxHash });
+  const { writeContract: approve, data: approveTxHash, error: approveErr } = useWriteContract();
+  const { isLoading: isApproving, isSuccess: isApproved, error: approveTxErr } = useWaitForTransactionReceipt({ hash: approveTxHash });
 
-  const { writeContract: onboard, data: txHash } = useWriteContract();
-  const { isLoading: isWaiting, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const { writeContract: onboard, data: txHash, error: onboardErr } = useWriteContract();
+  const { isLoading: isWaiting, isSuccess, error: onboardTxErr } = useWaitForTransactionReceipt({ hash: txHash });
+
+  useTxToast("Approve USDC", approveErr, isApproved, approveTxErr);
+  useTxToast("Onboard Agent", onboardErr, isSuccess, onboardTxErr);
 
   const needsApproval = (allowance ?? 0n) < fundingValue && !isApproved;
   const hasInsufficientFunds = (usdcBalance ?? 0n) < fundingValue;
@@ -401,13 +406,19 @@ export default function DashboardPage() {
     query: { enabled: isDeployed(ADDRESSES.escrow) },
   });
 
-  const { writeContract: faucet, data: faucetTxHash } = useWriteContract();
-  const { isLoading: fauceting, isSuccess: faucetSuccess } = useWaitForTransactionReceipt({ hash: faucetTxHash });
+  const { writeContract: faucet, data: faucetTxHash, error: faucetError } = useWriteContract();
+  const { isLoading: fauceting, isSuccess: faucetSuccess, error: faucetTxError } = useWaitForTransactionReceipt({ hash: faucetTxHash });
+
+  useTxToast("USDC Faucet", faucetError, faucetSuccess, faucetTxError);
 
   // Refetch USDC balance after faucet success
   useEffect(() => {
     if (faucetSuccess) {
       refetchUsdc();
+      // On live networks, the first refetch might be too early for the RPC.
+      const t1 = setTimeout(() => refetchUsdc(), 2000);
+      const t2 = setTimeout(() => refetchUsdc(), 5000);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [faucetSuccess, refetchUsdc]);
 
@@ -442,6 +453,7 @@ export default function DashboardPage() {
   return (
     <main className="flex flex-col min-h-[100dvh] bg-zinc-950">
       <Nav />
+      <Toaster position="bottom-right" />
 
       {/* Header */}
       <section className="max-w-[1400px] mx-auto w-full px-6 py-12 md:py-16">
