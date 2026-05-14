@@ -248,8 +248,25 @@ function OnboardingModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => 
   useTxToast("Approve USDC", approveErr, isApproved, approveTxErr);
   useTxToast("Onboard Agent", onboardErr, isSuccess, onboardTxErr);
 
-  const needsApproval = (allowance ?? 0n) < fundingValue && !isApproved;
-  const hasInsufficientFunds = (usdcBalance ?? 0n) < fundingValue;
+  const finalUsdcBal = (typeof window !== 'undefined' && (window as any).__MOCK_USDC_BALANCE__) ? BigInt((window as any).__MOCK_USDC_BALANCE__) : usdcBalance;
+  const finalAllowance = (typeof window !== 'undefined' && (window as any).__MOCK_ALLOWANCE__) ? BigInt((window as any).__MOCK_ALLOWANCE__) : allowance;
+
+  const needsApproval = (finalAllowance ?? 0n) < fundingValue && !isApproved;
+  const hasInsufficientFunds = (finalUsdcBal ?? 0n) < fundingValue;
+
+  if (typeof window !== 'undefined' && (window as any).__MOCK_CONNECTED__) {
+    console.log("[DEBUG] Modal state:", { 
+      funding, fundingValue: fundingValue.toString(), 
+      mockBal: (window as any).__MOCK_USDC_BALANCE__, 
+      finalBal: finalUsdcBal?.toString(),
+      hasInsufficientFunds,
+      needsApproval,
+      isApproved,
+      isWaiting,
+      isSuccess,
+      txHash
+    });
+  }
 
   const handleOnboard = async () => {
     if (hasInsufficientFunds) return;

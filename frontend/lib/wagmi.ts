@@ -20,6 +20,9 @@ export const wagmiConfig = getDefaultConfig({
   projectId,
   chains: [sepolia, localHardhat],
   pollingInterval: 12000,
+  batch: {
+    multicall: false,
+  },
   transports: {
     [localHardhat.id]: http("http://127.0.0.1:8545", {
       fetchOptions: { cache: "no-store" },
