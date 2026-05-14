@@ -1,141 +1,166 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
+import { Nav } from "@/components/Nav";
+import { AgentTerminal } from "@/components/AgentTerminal";
+import { 
+  Robot, 
+  Selection, 
+  LockKey, 
+  Broadcast, 
+  Star, 
+  Gavel,
+  ArrowRight,
+  Cube
+} from "@phosphor-icons/react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const features = [
   {
-    title: "ERC-6551 Agent Wallets",
-    desc: "Every AI agent owns an on-chain Token-Bound Account that holds USDC and executes trades autonomously.",
-    icon: "🤖",
+    title: "Agent Wallets",
+    desc: "Autonomous TBAs holding USDC and executing trades via ERC-6551.",
+    icon: Robot,
+    color: "text-blue-400",
   },
   {
-    title: "Digital Twin NFTs",
-    desc: "Each physical collectible is an ERC-721 NFT with IPFS metadata and a unique NFC hash.",
-    icon: "🏷️",
+    title: "Digital Twins",
+    desc: "Physical-to-digital bridge via NFC hashes and IPFS metadata.",
+    icon: Cube,
+    color: "text-emerald-400",
   },
   {
     title: "Trustless Escrow",
-    desc: "USDC is locked in a smart contract and released only after a DePIN node verifies the item.",
-    icon: "🔐",
+    desc: "Programmable settlement locked until DePIN verification.",
+    icon: LockKey,
+    color: "text-amber-400",
   },
   {
     title: "DePIN Verification",
-    desc: "Community-run nodes scan NFC tags and post cryptographic proofs on-chain to unlock settlement.",
-    icon: "📡",
+    desc: "Community nodes scanning physical NFC tags for proof-of-authenticity.",
+    icon: Broadcast,
+    color: "text-rose-400",
   },
   {
-    title: "Soulbound Reputation",
-    desc: "Non-transferable reputation tokens track agent and verifier track records — earned, never bought.",
-    icon: "⭐",
+    title: "SBT Reputation",
+    desc: "Non-transferable on-chain track records for agents and verifiers.",
+    icon: Star,
+    color: "text-indigo-400",
   },
   {
-    title: "Staking & Slashing",
-    desc: "Verifier nodes stake USDC as collateral. Bad attestations get slashed, keeping the network honest.",
-    icon: "⚖️",
+    title: "USDC Staking",
+    desc: "Collateralized network security with protocol-enforced slashing.",
+    icon: Gavel,
+    color: "text-cyan-400",
   },
-];
-
-const flow = [
-  "Fund Agent",
-  "Agent Discovers Item",
-  "Lock USDC Escrow",
-  "Ship Physical Item",
-  "DePIN Node Verifies NFC",
-  "Escrow Settles",
-  "Reputation Updated",
 ];
 
 export default function Home() {
   return (
-    <main className="flex flex-col min-h-screen">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-        <span className="text-xl font-bold tracking-tight text-indigo-400">ARES</span>
-        <div className="flex items-center gap-6">
-          <Link href="/marketplace" className="text-sm text-gray-400 hover:text-white transition-colors">
-            Marketplace
-          </Link>
-          <Link href="/dashboard" className="text-sm text-gray-400 hover:text-white transition-colors">
-            Dashboard
-          </Link>
-          <ConnectButton />
-        </div>
-      </nav>
+    <main className="min-h-[100dvh] flex flex-col bg-zinc-950 overflow-x-hidden">
+      <Nav />
 
-      {/* Hero */}
-      <section className="flex flex-col items-center text-center px-6 py-24 gap-6">
-        <div className="rounded-full bg-indigo-900/40 px-4 py-1 text-xs font-medium text-indigo-300 ring-1 ring-indigo-700">
-          Built on Ethereum Sepolia · Powered by ERC-6551
+      {/* Hero Section */}
+      <section className="relative px-6 py-24 md:py-32 flex flex-col items-center justify-center overflow-hidden">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-full pointer-events-none opacity-20">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-[120px]" />
         </div>
-        <h1 className="text-5xl font-extrabold tracking-tight max-w-3xl leading-tight">
-          The <span className="text-indigo-400">Machine-to-Machine</span> Marketplace for Physical Collectibles
-        </h1>
-        <p className="text-lg text-gray-400 max-w-2xl">
-          ARES lets autonomous AI agents hold on-chain wallets, discover deals, lock escrow, verify authenticity
-          via DePIN nodes, and settle payments — all without human intervention.
-        </p>
-        <div className="flex gap-4 mt-2">
-          <Link
-            href="/marketplace"
-            className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-6 py-3 text-sm font-semibold transition-colors"
-          >
-            Browse Marketplace
-          </Link>
-          <a
-            href="https://eips.ethereum.org/EIPS/eip-6551"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg border border-gray-700 hover:border-gray-500 px-6 py-3 text-sm font-semibold text-gray-300 transition-colors"
-          >
-            Learn ERC-6551
-          </a>
-        </div>
-      </section>
 
-      {/* Trade Flow */}
-      <section className="px-6 py-12 border-y border-gray-800 bg-gray-900/50">
-        <p className="text-center text-xs font-semibold uppercase tracking-widest text-gray-500 mb-8">
-          How a trade works
-        </p>
-        <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-gray-300 font-medium">
-          {flow.map((step, i) => (
-            <span key={step} className="flex items-center gap-2">
-              <span className="rounded bg-gray-800 px-3 py-1">{step}</span>
-              {i < flow.length - 1 && <span className="text-gray-600">→</span>}
-            </span>
-          ))}
-        </div>
-      </section>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="z-10 text-center max-w-4xl"
+        >
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/50 border border-zinc-800 text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase mb-8">
+            <div className="w-1 h-1 rounded-full bg-accent animate-pulse" />
+            HKUST BLOCKCHAIN LAB • SEPOLIA TESTNET
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white mb-6 leading-[0.9]">
+            The Protocol for <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-500">Autonomous Resell</span>
+          </h1>
+          
+          <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
+            ARES enables AI agents to possess on-chain identities, discover physical assets, 
+            and settle trades via DePIN-verified escrow protocols.
+          </p>
 
-      {/* Features */}
-      <section className="px-6 py-20">
-        <h2 className="text-center text-2xl font-bold mb-12">Protocol Primitives</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="rounded-xl border border-gray-800 bg-gray-900 p-6 flex flex-col gap-3 hover:border-indigo-700 transition-colors"
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
+            <Link
+              href="/marketplace"
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white text-black text-sm font-bold hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 group"
             >
-              <span className="text-2xl">{f.icon}</span>
-              <h3 className="font-semibold text-white">{f.title}</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">{f.desc}</p>
-            </div>
+              Enter Marketplace
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-zinc-900 text-white border border-zinc-800 text-sm font-bold hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
+            >
+              Agent Dashboard
+            </Link>
+          </div>
+
+          <AgentTerminal />
+        </motion.div>
+      </section>
+
+      {/* Grid Features */}
+      <section className="px-6 py-24 max-w-[1400px] mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              viewport={{ once: true }}
+              className="group p-8 rounded-3xl border border-zinc-900 bg-zinc-950 hover:border-zinc-800 hover:bg-zinc-900/50 transition-all duration-300"
+            >
+              <div className={cn("p-3 rounded-xl bg-zinc-900 w-fit mb-6 group-hover:scale-110 transition-transform", f.color)}>
+                <f.icon size={24} weight="duotone" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3 tracking-tight">{f.title}</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed font-medium">
+                {f.desc}
+              </p>
+            </motion.div>
           ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="px-6 py-16 text-center border-t border-gray-800">
-        <h2 className="text-2xl font-bold mb-4">Ready to deploy your agent?</h2>
-        <p className="text-gray-400 mb-8 max-w-xl mx-auto">
-          Connect your wallet, mint an agent NFT, and fund its on-chain wallet with USDC to start trading.
-        </p>
-        <ConnectButton />
+      {/* Stats/Code section */}
+      <section className="px-6 py-24 border-y border-zinc-900 bg-black/40">
+        <div className="max-w-4xl mx-auto flex flex-col gap-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { label: "Active Nodes", val: "128" },
+              { label: "Total Volume", val: "$42.4k" },
+              { label: "Settlement", val: "< 12s" },
+              { label: "Reputation", val: "S-Tier" }
+            ].map(s => (
+              <div key={s.label} className="text-center">
+                <p className="text-[10px] font-bold tracking-widest text-zinc-600 uppercase mb-2">{s.label}</p>
+                <p className="text-2xl font-mono font-bold text-white">{s.val}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
-      <footer className="mt-auto px-6 py-6 border-t border-gray-800 text-center text-xs text-gray-600">
-        ARES — HKUST Blockchain Lab · Sepolia Testnet · MIT License
+      <footer className="px-6 py-12 text-center">
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <div className="w-1 h-1 rounded-full bg-zinc-800" />
+          <div className="w-1 h-1 rounded-full bg-zinc-800" />
+          <div className="w-1 h-1 rounded-full bg-zinc-800" />
+        </div>
+        <p className="text-[10px] font-bold tracking-widest text-zinc-600 uppercase">
+          ARES PROTOCOL • HKUST BLOCKCHAIN LAB • MIT LICENSE
+        </p>
       </footer>
     </main>
   );

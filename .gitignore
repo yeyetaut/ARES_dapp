@@ -10,5 +10,8 @@ frontend/node_modules
 PLAN.md
 CLAUDE.md
 AGENTS.md
+GEMINI.md
 **/CLAUDE.md
 **/AGENTS.md
+**/GEMINI.md
+agent-integration-worktree/

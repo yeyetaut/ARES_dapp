@@ -1,30 +1,22 @@
 import { assert } from "chai";
 import hre from "hardhat";
 import { keccak256, toUtf8Bytes } from "ethers";
-import type { NetworkConnection } from "hardhat/types/network";
-
-// Helper to get a fresh network connection with ethers for each suite
-async function getConnection(): Promise<NetworkConnection> {
-  return hre.network.connect();
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MockUSDC
 // ─────────────────────────────────────────────────────────────────────────────
 describe("MockUSDC", function () {
   it("has 6 decimals", async function () {
-    const conn = await getConnection();
-    const [deployer] = await conn.ethers.getSigners();
-    const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", deployer);
+    const [deployer] = await hre.ethers.getSigners();
+    const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", deployer);
     const usdc = await MockUSDC.deploy();
 
     assert.equal(await usdc.decimals(), 6n);
   });
 
   it("faucet mints 1000 USDC to caller", async function () {
-    const conn = await getConnection();
-    const [deployer, user] = await conn.ethers.getSigners();
-    const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", deployer);
+    const [deployer, user] = await hre.ethers.getSigners();
+    const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", deployer);
     const usdc = await MockUSDC.deploy();
 
     await usdc.connect(user).faucet();
@@ -33,9 +25,8 @@ describe("MockUSDC", function () {
   });
 
   it("owner can mint arbitrary amounts", async function () {
-    const conn = await getConnection();
-    const [deployer, recipient] = await conn.ethers.getSigners();
-    const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", deployer);
+    const [deployer, recipient] = await hre.ethers.getSigners();
+    const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", deployer);
     const usdc = await MockUSDC.deploy();
 
     await usdc.mint(recipient.address, 500n * 10n ** 6n);
@@ -43,9 +34,8 @@ describe("MockUSDC", function () {
   });
 
   it("non-owner cannot mint", async function () {
-    const conn = await getConnection();
-    const [deployer, attacker] = await conn.ethers.getSigners();
-    const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", deployer);
+    const [deployer, attacker] = await hre.ethers.getSigners();
+    const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", deployer);
     const usdc = await MockUSDC.deploy();
 
     try {
@@ -62,11 +52,10 @@ describe("MockUSDC", function () {
 // ─────────────────────────────────────────────────────────────────────────────
 describe("DigitalTwin", function () {
   async function deployDigitalTwin() {
-    const conn = await getConnection();
-    const [deployer, seller] = await conn.ethers.getSigners();
-    const DigitalTwin = await conn.ethers.getContractFactory("DigitalTwin", deployer);
+    const [deployer, seller] = await hre.ethers.getSigners();
+    const DigitalTwin = await hre.ethers.getContractFactory("DigitalTwin", deployer);
     const twin = await DigitalTwin.deploy();
-    return { twin, deployer, seller, conn };
+    return { twin, deployer, seller };
   }
 
   it("owner can mint a Digital Twin", async function () {
@@ -87,13 +76,13 @@ describe("DigitalTwin", function () {
       await twin.mint(seller.address, nfcHash, "ipfs://QmHash2");
       assert.fail("Expected revert");
     } catch (e: any) {
-      assert.match(e.message, /already registered/i);
+      assert.include(e.message, "TagAlreadyRegistered");
     }
   });
 
   it("authorised minter can mint", async function () {
-    const { twin, deployer, seller, conn } = await deployDigitalTwin();
-    const [, , minter] = await conn.ethers.getSigners();
+    const { twin, seller } = await deployDigitalTwin();
+    const [, , minter] = await hre.ethers.getSigners();
     const nfcHash = keccak256(toUtf8Bytes("nfc-minter-test"));
 
     await twin.setMinter(minter.address, true);
@@ -102,15 +91,15 @@ describe("DigitalTwin", function () {
   });
 
   it("unauthorised address cannot mint", async function () {
-    const { twin, conn } = await deployDigitalTwin();
-    const [, , , unauthorized] = await conn.ethers.getSigners();
+    const { twin } = await deployDigitalTwin();
+    const [, , , unauthorized] = await hre.ethers.getSigners();
     const nfcHash = keccak256(toUtf8Bytes("nfc-unauth"));
 
     try {
       await twin.connect(unauthorized).mint(unauthorized.address, nfcHash, "ipfs://Qm");
       assert.fail("Expected revert");
     } catch (e: any) {
-      assert.match(e.message, /not authorised minter/i);
+      assert.include(e.message, "NotAuthorisedMinter");
     }
   });
 
@@ -129,11 +118,10 @@ describe("DigitalTwin", function () {
 // ─────────────────────────────────────────────────────────────────────────────
 describe("AgentRegistry", function () {
   async function deployRegistry() {
-    const conn = await getConnection();
-    const [deployer, user] = await conn.ethers.getSigners();
-    const AgentRegistry = await conn.ethers.getContractFactory("AgentRegistry", deployer);
+    const [deployer, user] = await hre.ethers.getSigners();
+    const AgentRegistry = await hre.ethers.getContractFactory("AgentRegistry", deployer);
     const registry = await AgentRegistry.deploy();
-    return { registry, deployer, user, conn };
+    return { registry, deployer, user };
   }
 
   it("createAgent mints an agent NFT with ID 1", async function () {
@@ -145,7 +133,7 @@ describe("AgentRegistry", function () {
   it("deploys a TBA at the deterministic address", async function () {
     const { registry, user } = await deployRegistry();
 
-    const predicted = await registry.computeTBAAddress(1n);
+    const predicted = await registry.computeTBAAddress(1n, 0, 0, 0, false);
     const tx = await registry.connect(user).createAgent();
     await tx.wait();
 
@@ -166,14 +154,13 @@ describe("AgentRegistry", function () {
 // ─────────────────────────────────────────────────────────────────────────────
 describe("AgentAccount (spending policy)", function () {
   async function setup() {
-    const conn = await getConnection();
-    const [deployer, user, other] = await conn.ethers.getSigners();
+    const [deployer, user, other] = await hre.ethers.getSigners();
 
     // Deploy contracts
-    const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", deployer);
+    const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", deployer);
     const usdc = await MockUSDC.deploy();
 
-    const AgentRegistry = await conn.ethers.getContractFactory("AgentRegistry", deployer);
+    const AgentRegistry = await hre.ethers.getContractFactory("AgentRegistry", deployer);
     const registry = await AgentRegistry.deploy();
 
     // Create agent and get TBA
@@ -186,10 +173,10 @@ describe("AgentAccount (spending policy)", function () {
     await usdc.connect(user).transfer(tbaAddress, 500n * 10n ** 6n);
 
     // Get AgentAccount contract instance
-    const AgentAccount = await conn.ethers.getContractFactory("AgentAccount", deployer);
+    const AgentAccount = await hre.ethers.getContractFactory("AgentAccount", deployer);
     const tba = AgentAccount.attach(tbaAddress);
 
-    return { usdc, registry, tba, user, other, conn };
+    return { usdc, registry, tba, user, other };
   }
 
   it("owner can set spending policy", async function () {
@@ -224,8 +211,8 @@ describe("AgentAccount (spending policy)", function () {
   });
 
   it("authorised executor can transfer", async function () {
-    const { usdc, tba, user, other, conn } = await setup();
-    const [, , , executor] = await conn.ethers.getSigners();
+    const { usdc, tba, user, other } = await setup();
+    const [, , , executor] = await hre.ethers.getSigners();
     const usdcAddress = await usdc.getAddress();
 
     await tba.connect(user).setExecutor(executor.address, true);
@@ -245,3 +232,4 @@ describe("AgentAccount (spending policy)", function () {
     }
   });
 });
+

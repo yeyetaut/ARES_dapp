@@ -1,9 +1,10 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useMemo } from "react";
 import Link from "next/link";
 import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Nav } from "@/components/Nav";
+import { useTxToast } from "@/hooks/useTxToast";
 import {
   ADDRESSES, MARKETPLACE_ABI, ESCROW_ABI, MOCK_USDC_ABI, DIGITAL_TWIN_ABI,
   VERIFIER_ABI, ESCROW_STATE, USDC_SCALE, isDeployed,
@@ -40,11 +41,13 @@ function BuyButton({ listingId, price }: { listingId: bigint; price: bigint }) {
 
   const needsApproval = (allowance ?? 0n) < price;
 
-  const { writeContract: approve, data: approveTxHash } = useWriteContract();
-  const { isLoading: approving, isSuccess: approved } = useWaitForTransactionReceipt({ hash: approveTxHash });
+  const { writeContract: approve, data: approveTxHash, error: approveErr } = useWriteContract();
+  const { isLoading: approving, isSuccess: approved, error: approveTxErr } = useWaitForTransactionReceipt({ hash: approveTxHash });
+  useTxToast("Approve USDC", approveErr, approved, approveTxErr);
 
-  const { writeContract: buy, data: buyTxHash } = useWriteContract();
-  const { isLoading: buying, isSuccess: bought } = useWaitForTransactionReceipt({ hash: buyTxHash });
+  const { writeContract: buy, data: buyTxHash, error: buyErr } = useWriteContract();
+  const { isLoading: buying, isSuccess: bought, error: buyTxErr } = useWaitForTransactionReceipt({ hash: buyTxHash });
+  useTxToast("Purchase", buyErr, bought, buyTxErr);
 
   if (!address) {
     return <p className="text-sm text-gray-500">Connect your wallet to buy.</p>;
@@ -113,8 +116,9 @@ function VerificationPanel({ escrowId }: { escrowId: bigint }) {
     query: { enabled: !!address && isDeployed(ADDRESSES.verifier) },
   });
 
-  const { writeContract: submit, data: submitTxHash } = useWriteContract();
-  const { isLoading: submitting, isSuccess: submitted } = useWaitForTransactionReceipt({ hash: submitTxHash });
+  const { writeContract: submit, data: submitTxHash, error: submitErr } = useWriteContract();
+  const { isLoading: submitting, isSuccess: submitted, error: submitTxErr } = useWaitForTransactionReceipt({ hash: submitTxHash });
+  useTxToast("Verification", submitErr, submitted, submitTxErr);
 
   function handleVerify() {
     if (!nfcTag) return;
@@ -206,11 +210,13 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
   });
 
   // Try up to the last 20 escrows to find one that maps to this listingId
-  const escrowCheckIds = escrowCount
-    ? Array.from({ length: Math.min(Number(escrowCount), 20) }, (_, i) => escrowCount - BigInt(i))
-    : [];
+  const escrowCheckIds = useMemo(() => {
+    return escrowCount
+      ? Array.from({ length: Math.min(Number(escrowCount), 20) }, (_, i) => escrowCount - BigInt(i))
+      : [];
+  }, [escrowCount]);
 
-  const { data: escrowMappings } = useReadContracts?.({
+  const { data: escrowMappings } = useReadContracts({
     contracts: escrowCheckIds.map(eid => ({
       address: ADDRESSES.marketplace,
       abi: MARKETPLACE_ABI,
@@ -218,7 +224,7 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
       args: [eid] as const,
     })),
     query: { enabled: escrowCheckIds.length > 0 },
-  }) ?? { data: undefined };
+  });
 
   const resolvedEscrowId: bigint | undefined = escrowIdOverride
     ? BigInt(escrowIdOverride)
@@ -229,8 +235,9 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
   const isSeller = address?.toLowerCase() === listing?.seller.toLowerCase();
   const priceUSDC = listing ? listing.price / USDC_SCALE : 0n;
 
-  const { writeContract: cancel, data: cancelTxHash } = useWriteContract();
-  const { isLoading: cancelling, isSuccess: cancelled } = useWaitForTransactionReceipt({ hash: cancelTxHash });
+  const { writeContract: cancel, data: cancelTxHash, error: cancelErr } = useWriteContract();
+  const { isLoading: cancelling, isSuccess: cancelled, error: cancelTxErr } = useWaitForTransactionReceipt({ hash: cancelTxHash });
+  useTxToast("Cancel Listing", cancelErr, cancelled, cancelTxErr);
 
   if (!isDeployed(ADDRESSES.marketplace)) {
     return (

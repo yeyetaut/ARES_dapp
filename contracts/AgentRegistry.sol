@@ -20,18 +20,41 @@ contract AgentRegistry is ERC721, Ownable {
     /// @notice Maps TBA address → agentId (reverse lookup)
     mapping(address => uint256) public accountToAgent;
 
+    /// @notice Maps user address → array of agentIds they own
+    mapping(address => uint256[]) private userAgents;
+
     event AgentCreated(uint256 indexed agentId, address indexed owner, address indexed tba);
 
     constructor() ERC721("ARES Agent", "AGENT") Ownable(msg.sender) {}
 
-    /// @notice Create a new agent: mints an NFT and deploys its TBA.
+    /// @notice Returns the total number of agents minted.
+    function agentCount() external view returns (uint256) {
+        return _nextAgentId;
+    }
+
+    /// @notice Returns the array of agent IDs owned by a specific address.
+    function getUserAgents(address user) external view returns (uint256[] memory) {
+        return userAgents[user];
+    }
+
+    /// @notice Create a new agent with default empty policies.
+    function createAgent() external returns (uint256 agentId, address tba) {
+        return createAgentWithPolicy(0, 0, 0, false);
+    }
+
+    /// @notice Create a new agent with initial spending policies.
     /// @return agentId  The ID of the newly minted agent NFT.
     /// @return tba      The address of the deployed Token-Bound Account.
-    function createAgent() external returns (uint256 agentId, address tba) {
+    function createAgentWithPolicy(
+        uint256 maxSingleTrade,
+        uint256 dailyBudget,
+        uint256 autoBuyPrice,
+        bool autoBuyActive
+    ) public returns (uint256 agentId, address tba) {
         agentId = ++_nextAgentId;
         _safeMint(msg.sender, agentId);
 
-        tba = _deployTBA(agentId);
+        tba = _deployTBA(agentId, maxSingleTrade, dailyBudget, autoBuyPrice, autoBuyActive);
         agentAccount[agentId] = tba;
         accountToAgent[tba] = agentId;
 
@@ -39,14 +62,49 @@ contract AgentRegistry is ERC721, Ownable {
     }
 
     /// @notice Compute the deterministic TBA address for a given agentId without deploying.
-    function computeTBAAddress(uint256 agentId) external view returns (address) {
-        return _computeAddress(agentId);
+    function computeTBAAddress(
+        uint256 agentId,
+        uint256 maxSingleTrade,
+        uint256 dailyBudget,
+        uint256 autoBuyPrice,
+        bool autoBuyActive
+    ) external view returns (address) {
+        return _computeAddress(agentId, maxSingleTrade, dailyBudget, autoBuyPrice, autoBuyActive);
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────
 
-    function _deployTBA(uint256 agentId) internal returns (address tba) {
-        bytes memory bytecode = _creationBytecode(agentId);
+    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+        address from = super._update(to, tokenId, auth);
+        
+        // Remove from previous owner's list
+        if (from != address(0)) {
+            uint256[] storage fromList = userAgents[from];
+            for (uint256 i = 0; i < fromList.length; i++) {
+                if (fromList[i] == tokenId) {
+                    fromList[i] = fromList[fromList.length - 1];
+                    fromList.pop();
+                    break;
+                }
+            }
+        }
+        
+        // Add to new owner's list
+        if (to != address(0)) {
+            userAgents[to].push(tokenId);
+        }
+
+        return from;
+    }
+
+    function _deployTBA(
+        uint256 agentId,
+        uint256 maxSingleTrade,
+        uint256 dailyBudget,
+        uint256 autoBuyPrice,
+        bool autoBuyActive
+    ) internal returns (address tba) {
+        bytes memory bytecode = _creationBytecode(agentId, maxSingleTrade, dailyBudget, autoBuyPrice, autoBuyActive);
         bytes32 salt = keccak256(abi.encodePacked(agentId));
 
         assembly {
@@ -55,8 +113,14 @@ contract AgentRegistry is ERC721, Ownable {
         require(tba != address(0), "AgentRegistry: TBA deployment failed");
     }
 
-    function _computeAddress(uint256 agentId) internal view returns (address) {
-        bytes memory bytecode = _creationBytecode(agentId);
+    function _computeAddress(
+        uint256 agentId,
+        uint256 maxSingleTrade,
+        uint256 dailyBudget,
+        uint256 autoBuyPrice,
+        bool autoBuyActive
+    ) internal view returns (address) {
+        bytes memory bytecode = _creationBytecode(agentId, maxSingleTrade, dailyBudget, autoBuyPrice, autoBuyActive);
         bytes32 salt = keccak256(abi.encodePacked(agentId));
         bytes32 hash = keccak256(
             abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode))
@@ -64,10 +128,24 @@ contract AgentRegistry is ERC721, Ownable {
         return address(uint160(uint256(hash)));
     }
 
-    function _creationBytecode(uint256 agentId) internal view returns (bytes memory) {
+    function _creationBytecode(
+        uint256 agentId,
+        uint256 maxSingleTrade,
+        uint256 dailyBudget,
+        uint256 autoBuyPrice,
+        bool autoBuyActive
+    ) internal view returns (bytes memory) {
         return abi.encodePacked(
             type(AgentAccount).creationCode,
-            abi.encode(block.chainid, address(this), agentId)
+            abi.encode(
+                block.chainid,
+                address(this),
+                agentId,
+                maxSingleTrade,
+                dailyBudget,
+                autoBuyPrice,
+                autoBuyActive
+            )
         );
     }
 }

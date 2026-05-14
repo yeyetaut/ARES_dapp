@@ -21,8 +21,11 @@ contract DigitalTwin is ERC721, ERC721URIStorage, Ownable {
     event TwinMinted(uint256 indexed tokenId, address indexed to, bytes32 nfcHash, string metadataURI);
     event MinterUpdated(address indexed minter, bool authorised);
 
+    error NotAuthorisedMinter();
+    error TagAlreadyRegistered();
+
     modifier onlyMinter() {
-        require(minters[msg.sender] || msg.sender == owner(), "DigitalTwin: not authorised minter");
+        if (!minters[msg.sender] && msg.sender != owner()) revert NotAuthorisedMinter();
         _;
     }
 
@@ -42,8 +45,8 @@ contract DigitalTwin is ERC721, ERC721URIStorage, Ownable {
         address to,
         bytes32 nfcHash,
         string calldata metadataURI
-    ) external onlyMinter returns (uint256 tokenId) {
-        require(nfcHashToTokenId[nfcHash] == 0, "DigitalTwin: NFC tag already registered");
+    ) external returns (uint256 tokenId) {
+        if (nfcHashToTokenId[nfcHash] != 0) revert TagAlreadyRegistered();
         tokenId = ++_nextTokenId;
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, metadataURI);

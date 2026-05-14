@@ -1,36 +1,30 @@
 import { assert } from "chai";
 import hre from "hardhat";
 import { keccak256, toUtf8Bytes } from "ethers";
-import type { NetworkConnection } from "hardhat/types/network";
-
-async function getConnection(): Promise<NetworkConnection> {
-  return hre.network.connect();
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared fixture
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function deployAll() {
-  const conn = await getConnection();
-  const [owner, seller, buyer, node, other] = await conn.ethers.getSigners();
+  const [owner, seller, buyer, node, other] = await hre.ethers.getSigners();
 
-  const MockUSDC = await conn.ethers.getContractFactory("MockUSDC", owner);
+  const MockUSDC = await hre.ethers.getContractFactory("MockUSDC", owner);
   const usdc = await MockUSDC.deploy();
 
-  const DigitalTwin = await conn.ethers.getContractFactory("DigitalTwin", owner);
+  const DigitalTwin = await hre.ethers.getContractFactory("DigitalTwin", owner);
   const twin = await DigitalTwin.deploy();
 
-  const Escrow = await conn.ethers.getContractFactory("Escrow", owner);
+  const Escrow = await hre.ethers.getContractFactory("Escrow", owner);
   const escrow = await Escrow.deploy(await usdc.getAddress());
 
-  const Marketplace = await conn.ethers.getContractFactory("Marketplace", owner);
+  const Marketplace = await hre.ethers.getContractFactory("Marketplace", owner);
   const marketplace = await Marketplace.deploy(
     await twin.getAddress(),
     await escrow.getAddress(),
   );
 
-  const Verifier = await conn.ethers.getContractFactory("Verifier", owner);
+  const Verifier = await hre.ethers.getContractFactory("Verifier", owner);
   const verifier = await Verifier.deploy(
     await usdc.getAddress(),
     await twin.getAddress(),
@@ -38,10 +32,10 @@ async function deployAll() {
     await marketplace.getAddress(),
   );
 
-  const Reputation = await conn.ethers.getContractFactory("Reputation", owner);
+  const Reputation = await hre.ethers.getContractFactory("Reputation", owner);
   const reputation = await Reputation.deploy();
 
-  const Staking = await conn.ethers.getContractFactory("Staking", owner);
+  const Staking = await hre.ethers.getContractFactory("Staking", owner);
   const staking = await Staking.deploy(await usdc.getAddress());
 
   // Wire contracts
@@ -60,7 +54,7 @@ async function deployAll() {
   await usdc.connect(node).faucet();
   await usdc.connect(other).faucet();
 
-  return { usdc, twin, escrow, marketplace, verifier, reputation, staking, owner, seller, buyer, node, other, conn };
+  return { usdc, twin, escrow, marketplace, verifier, reputation, staking, owner, seller, buyer, node, other };
 }
 
 const PRICE     = 100n * 10n ** 6n; // 100 USDC
@@ -209,7 +203,7 @@ describe("Reputation — trade completion", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Reputation — disputes", () => {
-  it("dispute resolved for buyer: buyer +5, seller -15", async () => {
+  it("dispute resolved for buyer: buyer +5, seller -15", async function () {
     const ctx = await deployAll();
     const { marketplace, escrow, reputation, owner, buyer, seller } = ctx;
 
@@ -363,15 +357,15 @@ describe("Staking — stake and unstake", () => {
 
   it("completeUnstake succeeds after cooldown via time-warp", async () => {
     const ctx = await deployAll();
-    const { usdc, staking, other, conn } = ctx;
+    const { usdc, staking, other } = ctx;
 
     await usdc.connect(other).approve(await staking.getAddress(), MIN_STAKE);
     await staking.connect(other).stake(MIN_STAKE);
     await staking.connect(other).initiateUnstake();
 
     const SEVEN_DAYS = 7 * 24 * 60 * 60;
-    await conn.provider.send("evm_increaseTime", [SEVEN_DAYS + 1]);
-    await conn.provider.send("evm_mine", []);
+    await hre.network.provider.send("evm_increaseTime", [SEVEN_DAYS + 1]);
+    await hre.network.provider.send("evm_mine", []);
 
     const balBefore = await usdc.balanceOf(other.address);
     await staking.connect(other).completeUnstake();
@@ -469,3 +463,4 @@ describe("Staking — slash", () => {
     assert.isTrue(reverted, "non-owner cannot slash");
   });
 });
+

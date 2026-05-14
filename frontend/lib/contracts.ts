@@ -3,14 +3,15 @@
 // or set them via NEXT_PUBLIC_* environment variables.
 
 export const ADDRESSES = {
-  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS        ?? "") as `0x${string}`,
-  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS        ?? "") as `0x${string}`,
-  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS      ?? "") as `0x${string}`,
-  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS      ?? "") as `0x${string}`,
-  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS    ?? "") as `0x${string}`,
-  verifier:    (process.env.NEXT_PUBLIC_VERIFIER_ADDRESS    ?? "") as `0x${string}`,
-  reputation:  (process.env.NEXT_PUBLIC_REPUTATION_ADDRESS  ?? "") as `0x${string}`,
-  staking:     (process.env.NEXT_PUBLIC_STAKING_ADDRESS     ?? "") as `0x${string}`,
+  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS        ?? "0x0CE88A3F67cA52794C5E3343DD6f08A940CcE2c4") as `0x${string}`,
+  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS        ?? "0x9234685ebD1fB35647B61dA9538981BBA81224c8") as `0x${string}`,
+  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS      ?? "0xCDb1E7e28540D3cbD8FB6a91122682e2184580bA") as `0x${string}`,
+  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS      ?? "0x151Ee43316DCcb11C5390EadE8CCe3234D36b9a3") as `0x${string}`,
+  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS    ?? "0xBb2F80d1C618e1ce71100752F22275B9Da20f122") as `0x${string}`,
+  factory:     (process.env.NEXT_PUBLIC_FACTORY_ADDRESS     ?? "0x80aE5F2f0Fe062FB406c8Dee21f0Ae545C56cd5c") as `0x${string}`,
+  verifier:    (process.env.NEXT_PUBLIC_VERIFIER_ADDRESS    ?? "0xCd88714344c3c08d9d9492b9b4E4f2bebec6aDc4") as `0x${string}`,
+  reputation:  (process.env.NEXT_PUBLIC_REPUTATION_ADDRESS  ?? "0x7cbb87298A8bE7377143dc86F4c2558AfC15Dd49") as `0x${string}`,
+  staking:     (process.env.NEXT_PUBLIC_STAKING_ADDRESS     ?? "0x533FdDf06f6e5FbE9457dFaFa60F5fF0Fab78a0e") as `0x${string}`,
 } as const;
 
 export const USDC_DECIMALS = 6n;
@@ -104,7 +105,29 @@ export const AGENT_REGISTRY_ABI = [
   { name: "balanceOf",         type: "function", stateMutability: "view",       inputs: [{ name: "owner", type: "address" }],       outputs: [{ type: "uint256" }] },
   { name: "agentAccount",      type: "function", stateMutability: "view",       inputs: [{ name: "agentId", type: "uint256" }],     outputs: [{ type: "address" }] },
   { name: "computeTBAAddress", type: "function", stateMutability: "view",       inputs: [{ name: "agentId", type: "uint256" }],     outputs: [{ type: "address" }] },
+  { name: "agentCount",        type: "function", stateMutability: "view",       inputs: [],                                         outputs: [{ type: "uint256" }] },
+  { name: "getUserAgents",     type: "function", stateMutability: "view",       inputs: [{ name: "user", type: "address" }],        outputs: [{ type: "uint256[]" }] },
   { name: "AgentCreated",      type: "event",    inputs: [{ name: "agentId", type: "uint256", indexed: true }, { name: "owner", type: "address", indexed: true }, { name: "tba", type: "address", indexed: true }] },
+] as const;
+
+export const AGENT_FACTORY_ABI = [
+  {
+    name: "onboardAgent",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "initialFunding", type: "uint256" },
+      { name: "maxSingleTrade", type: "uint256" },
+      { name: "dailyBudget",    type: "uint256" },
+      { name: "autoBuyPrice",   type: "uint256" },
+      { name: "autoBuyActive",  type: "bool"    },
+    ],
+    outputs: [
+      { name: "agentId", type: "uint256" },
+      { name: "tba",     type: "address" },
+    ],
+  },
+  { name: "AgentOnboarded", type: "event", inputs: [{ name: "agentId", type: "uint256", indexed: true }, { name: "owner", type: "address", indexed: true }, { name: "tba", type: "address", indexed: true }, { name: "initialFunding", type: "uint256", indexed: false }] },
 ] as const;
 
 export const AGENT_ACCOUNT_ABI = [
@@ -112,7 +135,23 @@ export const AGENT_ACCOUNT_ABI = [
   { name: "maxSingleTrade", type: "function", stateMutability: "view",       inputs: [],                                                                                              outputs: [{ type: "uint256" }] },
   { name: "dailyBudget",    type: "function", stateMutability: "view",       inputs: [],                                                                                              outputs: [{ type: "uint256" }] },
   { name: "dailySpent",     type: "function", stateMutability: "view",       inputs: [],                                                                                              outputs: [{ type: "uint256" }] },
+  {
+    name: "autoBuyPolicy",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "maxPrice", type: "uint256" },
+          { name: "active",   type: "bool"    },
+        ],
+      },
+    ],
+  },
   { name: "setPolicy",      type: "function", stateMutability: "nonpayable", inputs: [{ name: "_maxSingleTrade", type: "uint256" }, { name: "_dailyBudget", type: "uint256" }],      outputs: [] },
+  { name: "setAutoBuyPolicy", type: "function", stateMutability: "nonpayable", inputs: [{ name: "maxPrice", type: "uint256" }, { name: "active", type: "bool" }],              outputs: [] },
   { name: "setExecutor",    type: "function", stateMutability: "nonpayable", inputs: [{ name: "executor", type: "address" }, { name: "authorised", type: "bool" }],                 outputs: [] },
 ] as const;
 
