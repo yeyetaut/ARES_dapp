@@ -102,6 +102,13 @@ function AgentCard({ agentId, onUpdate }: { agentId: bigint, onUpdate?: () => vo
     query: { enabled: !!tba },
   });
 
+  const { data: dailySpent, refetch: refetchSpent } = useReadContract({
+    address: tba,
+    abi: AGENT_ACCOUNT_ABI,
+    functionName: "dailySpent",
+    query: { enabled: !!tba },
+  });
+
   const { data: autoBuy, refetch: refetchAutoBuy } = useReadContract({
     address: tba,
     abi: AGENT_ACCOUNT_ABI,
@@ -143,10 +150,11 @@ function AgentCard({ agentId, onUpdate }: { agentId: bigint, onUpdate?: () => vo
     if (policySet || autoBuySet) {
       refetchMaxSingle();
       refetchBudget();
+      refetchSpent();
       refetchAutoBuy();
       toast.success("Configuration updated on-chain");
     }
-  }, [burned, policySet, autoBuySet, onUpdate, refetchMaxSingle, refetchBudget, refetchAutoBuy]);
+  }, [burned, policySet, autoBuySet, onUpdate, refetchMaxSingle, refetchBudget, refetchSpent, refetchAutoBuy]);
 
   const handleSaveConfig = () => {
     if (!tba) return;
@@ -201,6 +209,8 @@ function AgentCard({ agentId, onUpdate }: { agentId: bigint, onUpdate?: () => vo
 
       <div className="grid grid-cols-2 gap-px bg-zinc-900 relative z-10">
           <TelemetryBox label="TBA Balance" value={usdcDisplay} unit="USDC" status={Number(usdcBal) > 0 ? 'active' : 'dim'} />
+          <TelemetryBox label="Daily Spent" value={dailySpent != null ? (Number(dailySpent) / Number(USDC_SCALE)).toFixed(2) : "—"} unit="USDC" status="warn" />
+          <TelemetryBox label="Single Limit" value={maxSingle != null ? (Number(maxSingle) / Number(USDC_SCALE)).toFixed(0) : "—"} unit="USDC" status="dim" />
           <TelemetryBox label="Daily Budget" value={dailyBudget != null ? (Number(dailyBudget) / Number(USDC_SCALE)).toFixed(0) : "—"} unit="USDC" status="dim" />
       </div>
 
@@ -599,7 +609,7 @@ function OnboardingModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onCl
                 onClick={onClose}
                 className={`${isSuccess ? 'w-full' : 'flex-1'} h-14 border border-zinc-800 text-[10px] font-mono font-bold text-zinc-500 hover:bg-zinc-900 transition-all uppercase tracking-widest`}
               >
-                {isSuccess ? "Deactivate_Interface" : "Abort_Action"}
+                {isSuccess ? "Success_Exit" : "Abort_Action"}
               </button>
               {!isSuccess && (
                 <button 

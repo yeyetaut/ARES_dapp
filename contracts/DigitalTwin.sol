@@ -45,7 +45,7 @@ contract DigitalTwin is ERC721, ERC721URIStorage, Ownable {
         address to,
         bytes32 nfcHash,
         string calldata metadataURI
-    ) external returns (uint256 tokenId) {
+    ) external onlyMinter returns (uint256 tokenId) {
         if (nfcHashToTokenId[nfcHash] != 0) revert TagAlreadyRegistered();
         tokenId = ++_nextTokenId;
         _safeMint(to, tokenId);
