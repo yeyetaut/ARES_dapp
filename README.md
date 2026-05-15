@@ -75,7 +75,52 @@ npm run sim:executor --network sepolia
 
 ---
 
-## 05 // DEPLOYMENT_CONFIG
+## 05 // TESTING_PROTOCOLS
+
+### SMART_CONTRACT_SUITE (HARDHAT)
+The protocol uses a phased testing approach to ensure modular integrity:
+```bash
+# Phase 1: Registry & TBA Deployment
+npx hardhat test test/phase1.test.ts
+
+# Phase 2: Digital Twin & Marketplace Listings
+npx hardhat test test/phase2.test.ts
+
+# Phase 3: Settlement & Escrow Logic
+npx hardhat test test/phase3.test.ts
+
+# Phase 4: Verification & Reputation
+npx hardhat test test/phase4.test.ts
+
+# Run All QA Checks
+npx hardhat test test/qa_onboarding.test.ts
+```
+
+### FRONTEND_VALIDATION (PLAYWRIGHT)
+Ensure the Tactical UI and Web3 integrations are operational:
+```bash
+cd frontend
+
+# Run E2E sanity checks
+npx playwright test tests/verify-page-sanity.spec.ts
+
+# Test Agent Onboarding Flow
+npx playwright test tests/agent-onboarding.spec.ts
+```
+
+### AGENT_EXECUTOR_SIMULATION
+Test the auto-buy logic locally before cloud deployment:
+```bash
+# Ensure local node is running
+npx hardhat node
+
+# Run executor against local network
+npx hardhat run scripts/agent-executor.ts --network localhost
+```
+
+---
+
+## 06 // DEPLOYMENT_CONFIG
 
 ### FRONTEND (VERCEL)
 Deployed to production at: [ARES Command Terminal](https://frontend-smoky-chi-43.vercel.app)
