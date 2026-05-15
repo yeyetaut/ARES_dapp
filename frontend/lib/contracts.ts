@@ -3,15 +3,15 @@
 // or set them via NEXT_PUBLIC_* environment variables.
 
 export const ADDRESSES = {
-  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS        ?? "0x0CE88A3F67cA52794C5E3343DD6f08A940CcE2c4") as `0x${string}`,
-  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS        ?? "0x9234685ebD1fB35647B61dA9538981BBA81224c8") as `0x${string}`,
-  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS      ?? "0xCDb1E7e28540D3cbD8FB6a91122682e2184580bA") as `0x${string}`,
-  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS      ?? "0x151Ee43316DCcb11C5390EadE8CCe3234D36b9a3") as `0x${string}`,
-  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS    ?? "0xBb2F80d1C618e1ce71100752F22275B9Da20f122") as `0x${string}`,
-  factory:     (process.env.NEXT_PUBLIC_FACTORY_ADDRESS     ?? "0x80aE5F2f0Fe062FB406c8Dee21f0Ae545C56cd5c") as `0x${string}`,
-  verifier:    (process.env.NEXT_PUBLIC_VERIFIER_ADDRESS    ?? "0xCd88714344c3c08d9d9492b9b4E4f2bebec6aDc4") as `0x${string}`,
-  reputation:  (process.env.NEXT_PUBLIC_REPUTATION_ADDRESS  ?? "0x7cbb87298A8bE7377143dc86F4c2558AfC15Dd49") as `0x${string}`,
-  staking:     (process.env.NEXT_PUBLIC_STAKING_ADDRESS     ?? "0x533FdDf06f6e5FbE9457dFaFa60F5fF0Fab78a0e") as `0x${string}`,
+  mockUSDC:    (process.env.NEXT_PUBLIC_USDC_ADDRESS        ?? "0x4BD4ABa1EaeE7b7528348e8A4BB775978004D191") as `0x${string}`,
+  digitalTwin: (process.env.NEXT_PUBLIC_TWIN_ADDRESS        ?? "0x228FFc728df832522c7399b13e7f3c43F55606e6") as `0x${string}`,
+  escrow:      (process.env.NEXT_PUBLIC_ESCROW_ADDRESS      ?? "0x7CC6176615461333e3a78B8C43F4c14a1a2050Bb") as `0x${string}`,
+  marketplace: (process.env.NEXT_PUBLIC_MARKET_ADDRESS      ?? "0xe320Bc16f641908916C1BeEB2812a2cE42CdF671") as `0x${string}`,
+  registry:    (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS    ?? "0xF0BC472a735A1D9272a787917Ec368c6A81e6712") as `0x${string}`,
+  factory:     (process.env.NEXT_PUBLIC_FACTORY_ADDRESS     ?? "0x6136afFB48c96EBc5CCa86958BBec2793e5D4D82") as `0x${string}`,
+  verifier:    (process.env.NEXT_PUBLIC_VERIFIER_ADDRESS    ?? "0x724B0A954142f864DCc5D6ab7CA6936E0C5021df") as `0x${string}`,
+  reputation:  (process.env.NEXT_PUBLIC_REPUTATION_ADDRESS  ?? "0x989cceb872cB1E1beb2CA4549e12Ca95269Bb05E") as `0x${string}`,
+  staking:     (process.env.NEXT_PUBLIC_STAKING_ADDRESS     ?? "0x34d322a61a90046f5153e80EFDDD153Dc235605C") as `0x${string}`,
 } as const;
 
 export const USDC_DECIMALS = 6n;
@@ -107,7 +107,9 @@ export const AGENT_REGISTRY_ABI = [
   { name: "computeTBAAddress", type: "function", stateMutability: "view",       inputs: [{ name: "agentId", type: "uint256" }],     outputs: [{ type: "address" }] },
   { name: "agentCount",        type: "function", stateMutability: "view",       inputs: [],                                         outputs: [{ type: "uint256" }] },
   { name: "getUserAgents",     type: "function", stateMutability: "view",       inputs: [{ name: "user", type: "address" }],        outputs: [{ type: "uint256[]" }] },
+  { name: "burn",              type: "function", stateMutability: "nonpayable", inputs: [{ name: "agentId", type: "uint256" }],       outputs: [] },
   { name: "AgentCreated",      type: "event",    inputs: [{ name: "agentId", type: "uint256", indexed: true }, { name: "owner", type: "address", indexed: true }, { name: "tba", type: "address", indexed: true }] },
+  { name: "AgentBurned",       type: "event",    inputs: [{ name: "agentId", type: "uint256", indexed: true }, { name: "owner", type: "address", indexed: true }] },
 ] as const;
 
 export const AGENT_FACTORY_ABI = [

@@ -181,6 +181,17 @@ function SubmitVerification({ address }: { address: `0x${string}` }) {
 
   useTxToast("Submit Verification", submitErr, submitted, submitTxErr);
 
+  // Auto-reset form after success
+  useEffect(() => {
+    if (submitted) {
+      const timer = setTimeout(() => {
+        setEscrowId("");
+        setNfcTag("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [submitted]);
+
   function handleSubmit() {
     setLocalErr("");
     if (!escrowId || !nfcTag) {

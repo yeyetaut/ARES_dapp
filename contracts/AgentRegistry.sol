@@ -24,6 +24,9 @@ contract AgentRegistry is ERC721, Ownable {
     mapping(address => uint256[]) private userAgents;
 
     event AgentCreated(uint256 indexed agentId, address indexed owner, address indexed tba);
+    event AgentBurned(uint256 indexed agentId, address indexed owner);
+
+    error NotAuthorised();
 
     constructor() ERC721("ARES Agent", "AGENT") Ownable(msg.sender) {}
 
@@ -59,6 +62,18 @@ contract AgentRegistry is ERC721, Ownable {
         accountToAgent[tba] = agentId;
 
         emit AgentCreated(agentId, msg.sender, tba);
+    }
+
+    /// @notice Burn an agent NFT. Only the owner can call this.
+    function burn(uint256 agentId) external {
+        if (ownerOf(agentId) != msg.sender) revert NotAuthorised();
+        
+        address tba = agentAccount[agentId];
+        delete agentAccount[agentId];
+        delete accountToAgent[tba];
+        
+        _burn(agentId);
+        emit AgentBurned(agentId, msg.sender);
     }
 
     /// @notice Compute the deterministic TBA address for a given agentId without deploying.

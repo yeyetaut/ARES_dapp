@@ -31,6 +31,7 @@ export interface AgentRegistryInterface extends Interface {
       | "agentCount"
       | "approve"
       | "balanceOf"
+      | "burn"
       | "computeTBAAddress"
       | "createAgent"
       | "createAgentWithPolicy"
@@ -53,6 +54,7 @@ export interface AgentRegistryInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "AgentBurned"
       | "AgentCreated"
       | "Approval"
       | "ApprovalForAll"
@@ -80,6 +82,7 @@ export interface AgentRegistryInterface extends Interface {
     functionFragment: "balanceOf",
     values: [AddressLike]
   ): string;
+  encodeFunctionData(functionFragment: "burn", values: [BigNumberish]): string;
   encodeFunctionData(
     functionFragment: "computeTBAAddress",
     values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish, boolean]
@@ -155,6 +158,7 @@ export interface AgentRegistryInterface extends Interface {
   decodeFunctionResult(functionFragment: "agentCount", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "approve", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "burn", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "computeTBAAddress",
     data: BytesLike
@@ -212,6 +216,19 @@ export interface AgentRegistryInterface extends Interface {
     functionFragment: "transferOwnership",
     data: BytesLike
   ): Result;
+}
+
+export namespace AgentBurnedEvent {
+  export type InputTuple = [agentId: BigNumberish, owner: AddressLike];
+  export type OutputTuple = [agentId: bigint, owner: string];
+  export interface OutputObject {
+    agentId: bigint;
+    owner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace AgentCreatedEvent {
@@ -360,6 +377,8 @@ export interface AgentRegistry extends BaseContract {
 
   balanceOf: TypedContractMethod<[owner: AddressLike], [bigint], "view">;
 
+  burn: TypedContractMethod<[agentId: BigNumberish], [void], "nonpayable">;
+
   computeTBAAddress: TypedContractMethod<
     [
       agentId: BigNumberish,
@@ -476,6 +495,9 @@ export interface AgentRegistry extends BaseContract {
     nameOrSignature: "balanceOf"
   ): TypedContractMethod<[owner: AddressLike], [bigint], "view">;
   getFunction(
+    nameOrSignature: "burn"
+  ): TypedContractMethod<[agentId: BigNumberish], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "computeTBAAddress"
   ): TypedContractMethod<
     [
@@ -579,6 +601,13 @@ export interface AgentRegistry extends BaseContract {
   ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
 
   getEvent(
+    key: "AgentBurned"
+  ): TypedContractEvent<
+    AgentBurnedEvent.InputTuple,
+    AgentBurnedEvent.OutputTuple,
+    AgentBurnedEvent.OutputObject
+  >;
+  getEvent(
     key: "AgentCreated"
   ): TypedContractEvent<
     AgentCreatedEvent.InputTuple,
@@ -615,6 +644,17 @@ export interface AgentRegistry extends BaseContract {
   >;
 
   filters: {
+    "AgentBurned(uint256,address)": TypedContractEvent<
+      AgentBurnedEvent.InputTuple,
+      AgentBurnedEvent.OutputTuple,
+      AgentBurnedEvent.OutputObject
+    >;
+    AgentBurned: TypedContractEvent<
+      AgentBurnedEvent.InputTuple,
+      AgentBurnedEvent.OutputTuple,
+      AgentBurnedEvent.OutputObject
+    >;
+
     "AgentCreated(uint256,address,address)": TypedContractEvent<
       AgentCreatedEvent.InputTuple,
       AgentCreatedEvent.OutputTuple,

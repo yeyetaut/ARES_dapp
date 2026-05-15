@@ -115,8 +115,13 @@ test.describe("Agent Onboarding", () => {
     await expect(actionBtn).toContainText("Initialize Agent", { timeout: 15000 });
     await actionBtn.click();
 
-    // 5. Verify Success
-    await expect(actionBtn).toContainText("Success!", { timeout: 15000 });
-    await expect(page.getByText("Success!")).toBeVisible();
+    // 5. Verify Success and Close
+    // Use a more robust locator for success state as the action button's name changes to "Success!"
+    await expect(page.getByText("Success!")).toBeVisible({ timeout: 15000 });
+    
+    const closeBtn = modal.getByRole("button", { name: /Close/i });
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(modal).not.toBeVisible();
   });
 });

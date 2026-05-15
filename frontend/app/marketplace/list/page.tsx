@@ -45,6 +45,14 @@ export default function ListItemPage() {
     query: { enabled: !!nfcHash },
   });
 
+  // Auto-transition from Mint -> Approve
+  useEffect(() => {
+    if (minted) {
+      const timer = setTimeout(() => setStep("approve"), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [minted]);
+
   // Extract twinId from receipt logs
   useEffect(() => {
     if (mintReceipt) {
@@ -71,6 +79,8 @@ export default function ListItemPage() {
     if (existingTwinId && existingTwinId > 0n && step === "mint" && !minting) {
        console.log("[DEBUG] Existing Twin Found:", existingTwinId);
        setTwinId(existingTwinId);
+       // We don't auto-jump here to give user a chance to see the message, 
+       // but we could if we wanted to. User might want to double check metadata.
     }
   }, [existingTwinId, step, minting]);
 
@@ -80,11 +90,27 @@ export default function ListItemPage() {
   const { isLoading: approvingNFT, isSuccess: approvedNFT, error: approveTxErr } = useWaitForTransactionReceipt({ hash: approveTxHash });
   useTxToast("Approve NFT", approveErr, approvedNFT, approveTxErr);
 
+  // Auto-transition from Approve -> List
+  useEffect(() => {
+    if (approvedNFT) {
+      const timer = setTimeout(() => setStep("list"), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [approvedNFT]);
+
   // ── Step 3: List item ──────────────────────────────────────────────────────
 
   const { writeContract: list, data: listTxHash, error: listErr } = useWriteContract();
   const { isLoading: listing, isSuccess: listed, error: listTxErr } = useWaitForTransactionReceipt({ hash: listTxHash });
   useTxToast("List Item", listErr, listed, listTxErr);
+
+  // Auto-transition from List -> Done
+  useEffect(() => {
+    if (listed) {
+      const timer = setTimeout(() => setStep("done"), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [listed]);
 
   const contractsDeployed = isDeployed(ADDRESSES.marketplace);
 
@@ -198,32 +224,26 @@ export default function ListItemPage() {
                 )}
 
                 <div className="flex flex-col gap-4">
-                  <button
-                    disabled={!nfcSeed || !metadataURI || minting || !contractsDeployed}
-                    onClick={() => {
-                      if (!nfcHash || !address) return;
-                      mint({
-                        address: ADDRESSES.digitalTwin,
-                        abi: DIGITAL_TWIN_ABI,
-                        functionName: "mint",
-                        args: [address, nfcHash, metadataURI],
-                      });
-                    }}
-                    className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(59,130,246,0.1)] flex items-center justify-center gap-3"
-                  >
-                    {minting ? <CircleNotch size={18} className="animate-spin" /> : <Tag size={18} weight="bold" />}
-                    {minting ? "Minting Protocol..." : "Initialize Digital Twin"}
-                  </button>
-
-                  {(minted || (existingTwinId && existingTwinId > 0n)) && (
+                  {!minted && !(existingTwinId && existingTwinId > 0n) && (
                     <button
-                      onClick={() => setStep("approve")}
-                      className="w-full rounded-2xl border border-zinc-800 hover:bg-zinc-900 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 group"
+                      disabled={!nfcSeed || !metadataURI || minting || !contractsDeployed}
+                      onClick={() => {
+                        if (!nfcHash || !address) return;
+                        mint({
+                          address: ADDRESSES.digitalTwin,
+                          abi: DIGITAL_TWIN_ABI,
+                          functionName: "mint",
+                          args: [address, nfcHash, metadataURI],
+                        });
+                      }}
+                      className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(59,130,246,0.1)] flex items-center justify-center gap-3"
                     >
-                      Continue to Approval
-                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                      {minting ? <CircleNotch size={18} className="animate-spin" /> : <Tag size={18} weight="bold" />}
+                      {minting ? "Minting Protocol..." : "Initialize Digital Twin"}
                     </button>
                   )}
+
+                  {/* Auto-jumping logic is active, so manual continue is redundant */}
                 </div>
 
                 <div className="pt-8 border-t border-zinc-900">
@@ -267,30 +287,22 @@ export default function ListItemPage() {
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <button
-                    disabled={approvingNFT || !contractsDeployed || !twinId}
-                    onClick={() => {
-                      if (!twinId) return;
-                      approveNFT({
-                        address: ADDRESSES.digitalTwin,
-                        abi: DIGITAL_TWIN_ABI,
-                        functionName: "approve",
-                        args: [ADDRESSES.marketplace, twinId],
-                      });
-                    }}
-                    className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
-                  >
-                    {approvingNFT ? <CircleNotch size={18} className="animate-spin" /> : <ShieldCheck size={18} weight="bold" />}
-                    {approvingNFT ? "Authorizing..." : "Approve Protocol"}
-                  </button>
-
-                  {approvedNFT && (
+                  {!approvedNFT && (
                     <button
-                      onClick={() => setStep("list")}
-                      className="w-full rounded-2xl border border-zinc-800 hover:bg-zinc-900 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 group"
+                      disabled={approvingNFT || !contractsDeployed || !twinId}
+                      onClick={() => {
+                        if (!twinId) return;
+                        approveNFT({
+                          address: ADDRESSES.digitalTwin,
+                          abi: DIGITAL_TWIN_ABI,
+                          functionName: "approve",
+                          args: [ADDRESSES.marketplace, twinId],
+                        });
+                      }}
+                      className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
                     >
-                      Continue to Listing
-                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                      {approvingNFT ? <CircleNotch size={18} className="animate-spin" /> : <ShieldCheck size={18} weight="bold" />}
+                      {approvingNFT ? "Authorizing..." : "Approve Protocol"}
                     </button>
                   )}
                 </div>
@@ -336,30 +348,22 @@ export default function ListItemPage() {
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <button
-                    disabled={!priceInput || priceRaw === 0n || listing || !contractsDeployed || !twinId}
-                    onClick={() => {
-                      if (!twinId || !metadataURI) return;
-                      list({
-                        address: ADDRESSES.marketplace,
-                        abi: MARKETPLACE_ABI,
-                        functionName: "listItem",
-                        args: [twinId, priceRaw, metadataURI],
-                      });
-                    }}
-                    className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
-                  >
-                    {listing ? <CircleNotch size={18} className="animate-spin" /> : <Tag size={18} weight="bold" />}
-                    {listing ? "Publishing..." : "Create Live Listing"}
-                  </button>
-
-                  {listed && (
+                  {!listed && (
                     <button
-                      onClick={() => setStep("done")}
-                      className="w-full rounded-2xl border border-zinc-800 hover:bg-zinc-900 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 group text-green-500"
+                      disabled={!priceInput || priceRaw === 0n || listing || !contractsDeployed || !twinId}
+                      onClick={() => {
+                        if (!twinId || !metadataURI) return;
+                        list({
+                          address: ADDRESSES.marketplace,
+                          abi: MARKETPLACE_ABI,
+                          functionName: "listItem",
+                          args: [twinId, priceRaw, metadataURI],
+                        });
+                      }}
+                      className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
                     >
-                      Successfully Listed!
-                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                      {listing ? <CircleNotch size={18} className="animate-spin" /> : <Tag size={18} weight="bold" />}
+                      {listing ? "Publishing..." : "Create Live Listing"}
                     </button>
                   )}
                 </div>

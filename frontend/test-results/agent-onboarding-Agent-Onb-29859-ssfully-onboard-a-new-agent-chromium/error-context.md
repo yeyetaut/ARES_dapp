@@ -12,29 +12,89 @@
 # Error details
 
 ```
-Error: expect(locator).toContainText(expected) failed
+Error: expect(locator).toBeVisible() failed
 
-Locator: getByRole('button', { name: /Approve USDC|Initialize Agent/i })
-Expected substring: "Success!"
-Received string:    "Initialize Agent"
+Locator: getByText('Success!')
+Expected: visible
 Timeout: 15000ms
+Error: element(s) not found
 
 Call log:
-  - Expect "toContainText" with timeout 15000ms
-  - waiting for getByRole('button', { name: /Approve USDC|Initialize Agent/i })
-    34 × locator resolved to <button class="flex-[2] px-4 py-3 rounded-xl bg-accent text-xs font-bold text-white hover:bg-blue-400 disabled:opacity-50 transition-all uppercase tracking-widest">Initialize Agent</button>
-       - unexpected value "Initialize Agent"
+  - Expect "toBeVisible" with timeout 15000ms
+  - waiting for getByText('Success!')
 
 ```
 
 ```yaml
-- button "Initialize Agent"
+- main:
+  - navigation:
+    - link "ARES":
+      - /url: /
+      - img
+      - text: ARES
+    - link "Marketplace":
+      - /url: /marketplace
+      - img
+      - text: Marketplace
+    - link "Dashboard":
+      - /url: /dashboard
+      - img
+      - text: Dashboard
+    - link "Verify":
+      - /url: /verify
+      - img
+      - text: Verify
+    - button "Connect Wallet"
+  - img
+  - text: Session Active
+  - heading "Command Dashboard" [level=1]
+  - paragraph: "Terminal Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  - button "USDC Faucet":
+    - img
+    - text: USDC Faucet
+  - button "Onboard Agent":
+    - img
+    - text: Onboard Agent
+  - heading "System Metrics" [level=2]
+  - paragraph: Wallet Liquidity
+  - paragraph: 1000.00 USDC
+  - paragraph: Fleet Size
+  - paragraph: 0 Agents
+  - heading "Quick Links" [level=2]
+  - button "Settlement Logs":
+    - img
+    - text: Settlement Logs
+    - img
+  - button "Documentation":
+    - img
+    - text: Documentation
+    - img
+  - heading "Authorized Agents" [level=2]
+  - img
+  - paragraph: No agents deployed to the registry yet.
+  - button "Initiate First Agent"
+  - heading "Settlement History" [level=2]
+  - paragraph: No transaction records found
+  - img
+  - heading "Onboard AI Agent" [level=2]
+  - paragraph: Configure autonomous trading parameters and fund the new instance.
+  - text: Initial Funding (USDC)
+  - spinbutton: "100"
+  - text: Max Auto-Price
+  - spinbutton: "100"
+  - text: Daily Budget
+  - spinbutton: "200"
+  - text: Max Single Trade
+  - spinbutton: "50"
+  - button "Cancel"
+  - button "Initialize Agent"
+  - paragraph: ARES PROTOCOL • HKUST BLOCKCHAIN LAB • v1.0.4-LOCKED
+- alert
 ```
 
 # Test source
 
 ```ts
-  19  |         isMetaMask: true,
   20  |         isConnected: () => true,
   21  |         request: async ({ method, params }: any) => {
   22  |           if (method === "eth_accounts" || method === "eth_requestAccounts") return [address];
@@ -133,11 +193,16 @@ Call log:
   115 |     await expect(actionBtn).toContainText("Initialize Agent", { timeout: 15000 });
   116 |     await actionBtn.click();
   117 | 
-  118 |     // 5. Verify Success
-> 119 |     await expect(actionBtn).toContainText("Success!", { timeout: 15000 });
-      |                             ^ Error: expect(locator).toContainText(expected) failed
-  120 |     await expect(page.getByText("Success!")).toBeVisible();
-  121 |   });
-  122 | });
-  123 | 
+  118 |     // 5. Verify Success and Close
+  119 |     // Use a more robust locator for success state as the action button's name changes to "Success!"
+> 120 |     await expect(page.getByText("Success!")).toBeVisible({ timeout: 15000 });
+      |                                              ^ Error: expect(locator).toBeVisible() failed
+  121 |     
+  122 |     const closeBtn = modal.getByRole("button", { name: /Close/i });
+  123 |     await expect(closeBtn).toBeVisible();
+  124 |     await closeBtn.click();
+  125 |     await expect(modal).not.toBeVisible();
+  126 |   });
+  127 | });
+  128 | 
 ```

@@ -31,10 +31,16 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-gray-950 text-white" suppressHydrationWarning>
-        <Providers>{children}</Providers>
-        <Toaster position="bottom-right" toastOptions={{
-          style: { background: '#1f2937', color: '#fff', border: '1px solid #374151' }
-        }} />
+        <Providers>
+          {children}
+          <Toaster 
+            position="top-center" 
+            containerStyle={{ zIndex: 99999 }}
+            toastOptions={{
+              style: { background: '#1f2937', color: '#fff', border: '1px solid #374151' }
+            }} 
+          />
+        </Providers>
       </body>
     </html>
   );

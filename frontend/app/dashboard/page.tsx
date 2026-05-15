@@ -11,16 +11,22 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Cpu, Wallet, ClockCounterClockwise as History, Plus, CaretRight, Info,
-  TrendUp, ShieldCheck, Gear, Coins, Robot 
+  TrendUp, ShieldCheck, Gear, Coins, Robot, Trash, Check, X 
 } from "@phosphor-icons/react";
 import { useTxToast } from "@/hooks/useTxToast";
-import { Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 // ─── Agent card ───────────────────────────────────────────────────────────────
 
-function AgentCard({ agentId }: { agentId: bigint }) {
+function AgentCard({ agentId, onUpdate }: { agentId: bigint, onUpdate?: () => void }) {
   const [showManage, setShowManage] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
+  // Configuration states
+  const [maxTradeInput, setMaxTradeInput] = useState("");
+  const [budgetInput, setBudgetInput] = useState("");
+  const [maxPriceInput, setMaxPriceInput] = useState("");
+
   const { data: tba } = useReadContract({
     address: ADDRESSES.registry,
     abi: AGENT_REGISTRY_ABI,
@@ -28,7 +34,7 @@ function AgentCard({ agentId }: { agentId: bigint }) {
     args: [agentId],
   });
 
-  const { data: usdcBal } = useReadContract({
+  const { data: usdcBal, refetch: refetchBal } = useReadContract({
     address: ADDRESSES.mockUSDC,
     abi: MOCK_USDC_ABI,
     functionName: "balanceOf",
@@ -36,32 +42,86 @@ function AgentCard({ agentId }: { agentId: bigint }) {
     query: { enabled: !!tba },
   });
 
-  const { data: maxSingle } = useReadContract({
+  const { data: maxSingle, refetch: refetchMaxSingle } = useReadContract({
     address: tba,
     abi: AGENT_ACCOUNT_ABI,
     functionName: "maxSingleTrade",
     query: { enabled: !!tba },
   });
 
-  const { data: dailyBudget } = useReadContract({
+  const { data: dailyBudget, refetch: refetchBudget } = useReadContract({
     address: tba,
     abi: AGENT_ACCOUNT_ABI,
     functionName: "dailyBudget",
     query: { enabled: !!tba },
   });
 
-  const { data: autoBuy } = useReadContract({
+  const { data: autoBuy, refetch: refetchAutoBuy } = useReadContract({
     address: tba,
     abi: AGENT_ACCOUNT_ABI,
     functionName: "autoBuyPolicy",
     query: { enabled: !!tba },
   });
 
+  // Sync inputs when data loads
+  useEffect(() => {
+    if (maxSingle !== undefined) setMaxTradeInput((Number(maxSingle) / Number(USDC_SCALE)).toString());
+    if (dailyBudget !== undefined) setBudgetInput((Number(dailyBudget) / Number(USDC_SCALE)).toString());
+    if (autoBuy !== undefined) setMaxPriceInput((Number(autoBuy.maxPrice) / Number(USDC_SCALE)).toString());
+  }, [maxSingle, dailyBudget, autoBuy]);
+
+  // Actions
+  const { writeContract: burn, data: burnHash, error: burnErr } = useWriteContract();
+  const { isLoading: burning, isSuccess: burned, error: burnTxErr } = useWaitForTransactionReceipt({ hash: burnHash });
+
+  const { writeContract: setPolicy, data: policyHash, error: policyErr } = useWriteContract();
+  const { isLoading: settingPolicy, isSuccess: policySet, error: policyTxErr } = useWaitForTransactionReceipt({ hash: policyHash });
+
+  const { writeContract: setAutoBuy, data: autoBuyHash, error: autoBuyErr } = useWriteContract();
+  const { isLoading: settingAutoBuy, isSuccess: autoBuySet, error: autoBuyTxErr } = useWaitForTransactionReceipt({ hash: autoBuyHash });
+
+  useTxToast("Delete Agent", burnErr, burned, burnTxErr);
+  useTxToast("Update Policy", policyErr, policySet, policyTxErr);
+  useTxToast("Update Auto-Buy", autoBuyErr, autoBuySet, autoBuyTxErr);
+
+  useEffect(() => {
+    if (burned && onUpdate) onUpdate();
+    if (policySet || autoBuySet) {
+      refetchMaxSingle();
+      refetchBudget();
+      refetchAutoBuy();
+      toast.success("Configuration updated on-chain");
+    }
+  }, [burned, policySet, autoBuySet, onUpdate, refetchMaxSingle, refetchBudget, refetchAutoBuy]);
+
+  const handleSaveConfig = () => {
+    if (!tba) return;
+    
+    const newMaxTrade = BigInt(Math.floor(parseFloat(maxTradeInput || "0") * Number(USDC_SCALE)));
+    const newBudget = BigInt(Math.floor(parseFloat(budgetInput || "0") * Number(USDC_SCALE)));
+    const newMaxPrice = BigInt(Math.floor(parseFloat(maxPriceInput || "0") * Number(USDC_SCALE)));
+
+    // Multi-call would be better, but for simplicity we do sequential or parallel
+    setPolicy({
+      address: tba,
+      abi: AGENT_ACCOUNT_ABI,
+      functionName: "setPolicy",
+      args: [newMaxTrade, newBudget],
+    });
+
+    setAutoBuy({
+      address: tba,
+      abi: AGENT_ACCOUNT_ABI,
+      functionName: "setAutoBuyPolicy",
+      args: [newMaxPrice, autoBuy?.active ?? true],
+    });
+  };
+
   const usdcDisplay = usdcBal != null ? (Number(usdcBal) / Number(USDC_SCALE)).toFixed(2) : "—";
 
   return (
-    <div className="group rounded-2xl border border-zinc-900 bg-zinc-950 p-6 flex flex-col gap-5 hover:border-zinc-700 transition-all duration-300">
-      <div className="flex items-start justify-between">
+    <div className="group rounded-2xl border border-zinc-900 bg-zinc-950 p-6 flex flex-col gap-5 hover:border-zinc-700 transition-all duration-300 relative overflow-hidden">
+      <div className="flex items-start justify-between relative z-10">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-zinc-900 border border-zinc-800">
             <Robot size={24} weight="duotone" className="text-accent" />
@@ -82,7 +142,7 @@ function AgentCard({ agentId }: { agentId: bigint }) {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 relative z-10">
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 rounded-xl bg-zinc-900/50 border border-zinc-900">
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Balance</p>
@@ -107,17 +167,20 @@ function AgentCard({ agentId }: { agentId: bigint }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pt-2">
+      <div className="flex items-center gap-2 pt-2 relative z-10">
          <button 
            onClick={() => setShowManage(!showManage)}
-           className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 transition-colors"
+           className={`flex-1 flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition-colors ${showManage ? 'bg-accent border-accent text-white' : 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800'}`}
          >
            <Gear size={16} />
-           Configure
+           {showManage ? 'Close' : 'Configure'}
          </button>
-         <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-400 transition-all">
-           <Coins size={16} />
-           Fund
+         <button 
+           onClick={() => setIsDeleting(true)}
+           className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-950/30 transition-colors"
+         >
+           <Trash size={16} />
+           Delete
          </button>
       </div>
 
@@ -127,22 +190,90 @@ function AgentCard({ agentId }: { agentId: bigint }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
+            className="overflow-hidden relative z-10"
           >
-            <div className="pt-4 mt-2 border-t border-zinc-900 space-y-3">
-               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
-                  <span className="text-zinc-500">Auto-Buy Threshold</span>
-                  <span className="text-white">
-                    {autoBuy != null ? (Number(autoBuy.maxPrice) / Number(USDC_SCALE)).toFixed(0) : "—"} USDC
-                  </span>
+            <div className="pt-4 mt-2 border-t border-zinc-900 space-y-4">
+               <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Auto-Buy Max Price</label>
+                    <div className="flex items-center gap-2">
+                       <input 
+                         type="number"
+                         value={maxPriceInput}
+                         onChange={(e) => setMaxPriceInput(e.target.value)}
+                         className="w-20 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10px] font-mono text-white text-right outline-none focus:border-accent"
+                       />
+                       <span className="text-[10px] text-zinc-600 font-bold">USDC</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Single Trade Limit</label>
+                    <div className="flex items-center gap-2">
+                       <input 
+                         type="number"
+                         value={maxTradeInput}
+                         onChange={(e) => setMaxTradeInput(e.target.value)}
+                         className="w-20 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10px] font-mono text-white text-right outline-none focus:border-accent"
+                       />
+                       <span className="text-[10px] text-zinc-600 font-bold">USDC</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Daily Budget</label>
+                    <div className="flex items-center gap-2">
+                       <input 
+                         type="number"
+                         value={budgetInput}
+                         onChange={(e) => setBudgetInput(e.target.value)}
+                         className="w-20 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10px] font-mono text-white text-right outline-none focus:border-accent"
+                       />
+                       <span className="text-[10px] text-zinc-600 font-bold">USDC</span>
+                    </div>
+                  </div>
                </div>
-               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
-                  <span className="text-zinc-500">Single Trade Limit</span>
-                  <span className="text-white">
-                    {maxSingle != null ? (Number(maxSingle) / Number(USDC_SCALE)).toFixed(0) : "—"} USDC
-                  </span>
-               </div>
+               <button 
+                 disabled={settingPolicy || settingAutoBuy}
+                 onClick={handleSaveConfig}
+                 className="w-full rounded-xl bg-accent px-4 py-2 text-[10px] font-bold text-white uppercase tracking-widest hover:bg-blue-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+               >
+                 {settingPolicy || settingAutoBuy ? <CircleNotch size={14} className="animate-spin" /> : <Check size={14} />}
+                 Save Configuration
+               </button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Overlay */}
+      <AnimatePresence>
+        {isDeleting && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center"
+          >
+             <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4">
+                <Trash size={24} weight="duotone" />
+             </div>
+             <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-tight">Delete Agent Protocol?</h3>
+             <p className="text-[10px] text-zinc-500 mb-6 leading-relaxed">This will burn the Agent NFT and permanently deactivate this TBA instance. This action is irreversible.</p>
+             <div className="flex gap-3 w-full">
+                <button 
+                  onClick={() => setIsDeleting(false)}
+                  className="flex-1 rounded-lg border border-zinc-800 px-4 py-2 text-[10px] font-bold text-zinc-400 hover:bg-zinc-900 uppercase tracking-widest transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={burning}
+                  onClick={() => burn({ address: ADDRESSES.registry, abi: AGENT_REGISTRY_ABI, functionName: "burn", args: [agentId] })}
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-[10px] font-bold text-white hover:bg-red-500 disabled:opacity-50 uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                >
+                  {burning ? <CircleNotch size={14} className="animate-spin" /> : <Trash size={14} />}
+                  Burn
+                </button>
+             </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -214,7 +345,7 @@ function EscrowRow({ escrowId, userAddress }: { escrowId: bigint; userAddress: s
 
 // ─── Onboarding Modal ─────────────────────────────────────────────────────────
 
-function OnboardingModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+function OnboardingModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClose: () => void, onSuccess?: () => void }) {
   const { address } = useAccount();
   const [funding, setFunding] = useState("100");
   const [maxTrade, setMaxTrade] = useState("50");
@@ -248,25 +379,20 @@ function OnboardingModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => 
   useTxToast("Approve USDC", approveErr, isApproved, approveTxErr);
   useTxToast("Onboard Agent", onboardErr, isSuccess, onboardTxErr);
 
+  // Trigger refetch and auto-close on success
+  useEffect(() => {
+    if (isSuccess) {
+      if (onSuccess) onSuccess();
+      const timer = setTimeout(() => onClose(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess, onSuccess, onClose]);
+
   const finalUsdcBal = (typeof window !== 'undefined' && (window as any).__MOCK_USDC_BALANCE__) ? BigInt((window as any).__MOCK_USDC_BALANCE__) : usdcBalance;
   const finalAllowance = (typeof window !== 'undefined' && (window as any).__MOCK_ALLOWANCE__) ? BigInt((window as any).__MOCK_ALLOWANCE__) : allowance;
 
   const needsApproval = (finalAllowance ?? 0n) < fundingValue && !isApproved;
   const hasInsufficientFunds = (finalUsdcBal ?? 0n) < fundingValue;
-
-  if (typeof window !== 'undefined' && (window as any).__MOCK_CONNECTED__) {
-    console.log("[DEBUG] Modal state:", { 
-      funding, fundingValue: fundingValue.toString(), 
-      mockBal: (window as any).__MOCK_USDC_BALANCE__, 
-      finalBal: finalUsdcBal?.toString(),
-      hasInsufficientFunds,
-      needsApproval,
-      isApproved,
-      isWaiting,
-      isSuccess,
-      txHash
-    });
-  }
 
   const handleOnboard = async () => {
     if (hasInsufficientFunds) return;
@@ -368,17 +494,19 @@ function OnboardingModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => 
            <div className="flex items-center gap-3 pt-4">
               <button 
                 onClick={onClose}
-                className="flex-1 px-4 py-3 rounded-xl border border-zinc-800 text-xs font-bold text-zinc-400 hover:bg-zinc-900 transition-colors uppercase tracking-widest"
+                className={`${isSuccess ? 'w-full' : 'flex-1'} px-4 py-3 rounded-xl border border-zinc-800 text-xs font-bold text-zinc-400 hover:bg-zinc-900 transition-colors uppercase tracking-widest`}
               >
-                Cancel
+                {isSuccess ? "Close" : "Cancel"}
               </button>
-              <button 
-                disabled={isWaiting || isApproving || (hasInsufficientFunds && !isSuccess)}
-                onClick={handleOnboard}
-                className="flex-[2] px-4 py-3 rounded-xl bg-accent text-xs font-bold text-white hover:bg-blue-400 disabled:opacity-50 transition-all uppercase tracking-widest"
-              >
-                {isApproving ? "Approving..." : isWaiting ? "Authorizing..." : isSuccess ? "Success!" : hasInsufficientFunds ? "Insufficient Funds" : needsApproval ? "Approve USDC" : "Initialize Agent"}
-              </button>
+              {!isSuccess && (
+                <button 
+                  disabled={isWaiting || isApproving || (hasInsufficientFunds && !isSuccess)}
+                  onClick={handleOnboard}
+                  className="flex-[2] px-4 py-3 rounded-xl bg-accent text-xs font-bold text-white hover:bg-blue-400 disabled:opacity-50 transition-all uppercase tracking-widest"
+                >
+                  {isApproving ? "Approving..." : isWaiting ? "Authorizing..." : hasInsufficientFunds ? "Insufficient Funds" : needsApproval ? "Approve USDC" : "Initialize Agent"}
+                </button>
+              )}
            </div>
         </div>
       </motion.div>
@@ -398,7 +526,7 @@ export default function DashboardPage() {
 
   const [isOnboarding, setIsOnboarding] = useState(false);
 
-  const { data: userAgentsData } = useReadContract({
+  const { data: userAgentsData, refetch: refetchAgents } = useReadContract({
     address: ADDRESSES.registry,
     abi: AGENT_REGISTRY_ABI,
     functionName: "getUserAgents",
@@ -470,7 +598,6 @@ export default function DashboardPage() {
   return (
     <main className="flex flex-col min-h-[100dvh] bg-zinc-950">
       <Nav />
-      <Toaster position="bottom-right" />
 
       {/* Header */}
       <section className="max-w-[1400px] mx-auto w-full px-6 py-12 md:py-16">
@@ -567,7 +694,7 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {agentIds.map((id, i) => (
-                  <AgentCard key={i} agentId={id} />
+                  <AgentCard key={id.toString()} agentId={id} onUpdate={refetchAgents} />
                 ))}
               </div>
             )}
@@ -605,7 +732,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <OnboardingModal isOpen={isOnboarding} onClose={() => setIsOnboarding(false)} />
+      <OnboardingModal isOpen={isOnboarding} onClose={() => setIsOnboarding(false)} onSuccess={refetchAgents} />
 
       <footer className="max-w-[1400px] mx-auto w-full px-6 py-12 border-t border-zinc-900 text-center">
         <p className="text-[10px] font-bold tracking-[0.2em] text-zinc-600 uppercase">
