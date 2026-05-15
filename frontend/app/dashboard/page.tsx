@@ -465,14 +465,22 @@ function OnboardingModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onCl
     query: { enabled: !!address },
   });
 
-  const { writeContract: approve, data: approveTxHash, error: approveErr } = useWriteContract();
+  const { writeContract: approve, data: approveTxHash, error: approveErr, reset: resetApprove } = useWriteContract();
   const { isLoading: isApproving, isSuccess: isApproved, error: approveTxErr } = useWaitForTransactionReceipt({ hash: approveTxHash });
 
-  const { writeContract: onboard, data: txHash, error: onboardErr } = useWriteContract();
+  const { writeContract: onboard, data: txHash, error: onboardErr, reset: resetOnboard } = useWriteContract();
   const { isLoading: isWaiting, isSuccess, error: onboardTxErr } = useWaitForTransactionReceipt({ hash: txHash });
 
   useTxToast("Approve USDC", approveErr, isApproved, approveTxErr);
   useTxToast("Onboard Agent", onboardErr, isSuccess, onboardTxErr);
+
+  // Reset states when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      resetApprove();
+      resetOnboard();
+    }
+  }, [isOpen, resetApprove, resetOnboard]);
 
   // Trigger refetch and auto-close on success
   useEffect(() => {
@@ -839,7 +847,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <OnboardingModal isOpen={isOnboarding} onClose={() => setIsOnboarding(false)} onSuccess={refetchAgents} />
+      {isOnboarding && (
+        <OnboardingModal 
+          isOpen={isOnboarding} 
+          onClose={() => setIsOnboarding(false)} 
+          onSuccess={refetchAgents} 
+        />
+      )}
 
       <footer className="max-w-6xl mx-auto w-full px-6 py-12 border-t border-zinc-900 flex justify-between items-center opacity-30 grayscale hover:opacity-100 transition-all">
         <p className="text-[9px] font-mono font-bold tracking-[0.3em] text-zinc-500 uppercase">
