@@ -22,14 +22,14 @@ async function processListing(
   const agentCount = await Registry.agentCount();
   for (let i = 1n; i <= agentCount; i++) {
     const tbaAddr = await Registry.agentAccount(i);
-    const AgentAccount = await hre.ethers.getContractAt("AgentAccount", tbaAddr);
+    const AgentAccount = await hre.ethers.getContractAt("AgentAccount", hre.ethers.getAddress(tbaAddr));
 
     try {
       const policy = await AgentAccount.autoBuyPolicy();
       const maxSingle = await AgentAccount.maxSingleTrade();
       const budget = await AgentAccount.dailyBudget();
       const spent = await AgentAccount.dailySpent();
-      const isExecutor = await AgentAccount.authorisedExecutors(executor.address);
+      const isExecutor = await AgentAccount.authorisedExecutors(hre.ethers.getAddress(executor.address));
       const agentOwner = await AgentAccount.owner();
       const isOwner = agentOwner.toLowerCase() === executor.address.toLowerCase();
 
@@ -57,9 +57,9 @@ async function processListing(
       // Execute Buy
       console.log(`Agent ${i} matches! Executing auto-buy for listing ${listingId}...`);
       const tx = await AgentAccount.connect(executor).executeAutoBuy(
-        MARKETPLACE_ADDR,
-        ESCROW_ADDR,
-        USDC_ADDR,
+        hre.ethers.getAddress(MARKETPLACE_ADDR),
+        hre.ethers.getAddress(ESCROW_ADDR),
+        hre.ethers.getAddress(USDC_ADDR),
         listingId
       );
       const receipt = await tx.wait();
@@ -87,8 +87,8 @@ export async function main() {
     return;
   }
 
-  const Marketplace = await hre.ethers.getContractAt("Marketplace", MARKETPLACE_ADDR);
-  const Registry = await hre.ethers.getContractAt("AgentRegistry", REGISTRY_ADDR);
+  const Marketplace = await hre.ethers.getContractAt("Marketplace", hre.ethers.getAddress(MARKETPLACE_ADDR));
+  const Registry = await hre.ethers.getContractAt("AgentRegistry", hre.ethers.getAddress(REGISTRY_ADDR));
 
   console.log("Monitoring Marketplace at:", MARKETPLACE_ADDR);
 
