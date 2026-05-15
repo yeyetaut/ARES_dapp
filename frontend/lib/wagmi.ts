@@ -27,7 +27,7 @@ export const wagmiConfig = getDefaultConfig({
     [localHardhat.id]: http("http://127.0.0.1:8545", {
       fetchOptions: { cache: "no-store" },
     }),
-    [sepolia.id]: http(),
+    [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL),
   },
   ssr: true,
 });
