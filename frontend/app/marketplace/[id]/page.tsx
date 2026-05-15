@@ -5,12 +5,61 @@ import Link from "next/link";
 import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Nav } from "@/components/Nav";
 import { useTxToast } from "@/hooks/useTxToast";
-import {
+import { 
   ADDRESSES, MARKETPLACE_ABI, ESCROW_ABI, MOCK_USDC_ABI, DIGITAL_TWIN_ABI,
   VERIFIER_ABI, ESCROW_STATE, USDC_SCALE, isDeployed,
 } from "@/lib/contracts";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Tag, User, ArrowsOutSimple, Cube, Cpu, Pulse, 
+  ShieldCheck, Coins, CheckCircle, CircleNotch, Info, 
+  ArrowRight, Key, Warning, SealCheck, ArrowLeft, Fingerprint
+} from "@phosphor-icons/react";
 
-// ─── Escrow status badge ──────────────────────────────────────────────────────
+// ─── Tactical UI Components ──────────────────────────────────────────────────
+
+function Heartbeat() {
+  return (
+    <div className="flex items-center gap-1">
+       {[...Array(6)].map((_, i) => (
+         <motion.div
+           key={i}
+           animate={{ height: [4, 12, 4] }}
+           transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
+           className="w-1 bg-accent/40"
+         />
+       ))}
+    </div>
+  );
+}
+
+function TelemetryBox({ label, value, unit, status }: { label: string; value: string; unit?: string; status?: 'active' | 'warn' | 'dim' }) {
+  const statusColor = status === 'active' ? 'text-green-500' : status === 'warn' ? 'text-red-500' : 'text-zinc-600';
+  return (
+    <div className="border border-zinc-900 bg-black/40 p-4 font-mono">
+       <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] mb-1">// {label}</p>
+       <p className={`text-lg font-bold tracking-tight ${statusColor}`}>
+         {value} {unit && <span className="text-[10px] opacity-50 ml-1">{unit}</span>}
+       </p>
+    </div>
+  );
+}
+
+function SectionHeader({ title, subtitle, icon: Icon }: { title: string; subtitle: string; icon: any }) {
+  return (
+    <div className="flex items-start gap-4 mb-8">
+       <div className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400">
+          <Icon size={24} weight="duotone" />
+       </div>
+       <div>
+          <h2 className="text-xl font-bold tracking-tighter uppercase">{title}</h2>
+          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">{subtitle}</p>
+       </div>
+    </div>
+  );
+}
+
+// ─── Buy button ───────────────────────────────────────────────────────────────
 
 function EscrowBadge({ state }: { state: number }) {
   const styles: Record<number, string> = {
@@ -50,11 +99,20 @@ function BuyButton({ listingId, price }: { listingId: bigint; price: bigint }) {
   useTxToast("Purchase", buyErr, bought, buyTxErr);
 
   if (!address) {
-    return <p className="text-sm text-gray-500">Connect your wallet to buy.</p>;
+    return (
+      <div className="p-6 border border-zinc-900 bg-zinc-950/50 text-center space-y-4">
+         <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">Hardware Authorization Required</p>
+      </div>
+    );
   }
 
   if (bought) {
-    return <p className="text-sm text-green-400 font-medium">Purchase complete! USDC locked in escrow.</p>;
+    return (
+      <div className="p-6 border border-green-900 bg-green-500/5 text-center">
+         <SealCheck size={32} className="text-green-500 mx-auto mb-3" weight="fill" />
+         <p className="text-[10px] font-mono font-bold text-green-500 tracking-[0.2em] uppercase">Liquidity Locked In Escrow</p>
+      </div>
+    );
   }
 
   if (needsApproval && !approved) {
@@ -69,9 +127,10 @@ function BuyButton({ listingId, price }: { listingId: bigint; price: bigint }) {
             args: [ADDRESSES.escrow, price],
           })
         }
-        className="w-full rounded-lg bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 px-4 py-3 text-sm font-semibold transition-colors"
+        className="w-full h-16 bg-accent hover:bg-blue-400 text-white font-bold text-[12px] tracking-[0.4em] uppercase transition-all active:translate-y-px disabled:opacity-20 flex items-center justify-center gap-4"
       >
-        {approving ? "Approving USDC…" : "Approve USDC"}
+        {approving ? <CircleNotch size={20} className="animate-spin" /> : <Coins size={20} weight="bold" />}
+        {approving ? "Authorizing USDC..." : "Approve Liquidity"}
       </button>
     );
   }
@@ -87,9 +146,10 @@ function BuyButton({ listingId, price }: { listingId: bigint; price: bigint }) {
           args: [listingId],
         })
       }
-      className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-3 text-sm font-semibold transition-colors"
+      className="w-full h-16 bg-accent hover:bg-blue-400 text-white font-bold text-[12px] tracking-[0.4em] uppercase transition-all active:translate-y-px disabled:opacity-20 flex items-center justify-center gap-4 shadow-[0_0_30px_rgba(59,130,246,0.2)]"
     >
-      {buying ? "Confirming…" : "Buy Now"}
+      {buying ? <CircleNotch size={20} className="animate-spin" /> : <ArrowsOutSimple size={20} weight="bold" />}
+      {buying ? "Executing Swap..." : "Finalize Purchase"}
     </button>
   );
 }
@@ -136,42 +196,59 @@ function VerificationPanel({ escrowId }: { escrowId: bigint }) {
   if (!isDeployed(ADDRESSES.verifier)) return null;
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">DePIN Verification</h3>
-        <span className={`rounded px-2 py-0.5 text-xs font-medium ${att?.finalized ? "bg-green-900/50 text-green-300" : "bg-yellow-900/50 text-yellow-300"}`}>
-          {att?.finalized ? "Verified" : "Awaiting Verification"}
-        </span>
+    <div className="bg-zinc-950 border border-zinc-900 p-8 flex flex-col gap-6 shadow-2xl relative overflow-hidden">
+      <div className="flex justify-between items-start">
+         <div>
+            <h3 className="text-xl font-bold tracking-tighter uppercase italic flex items-center gap-3">
+               <Fingerprint size={24} className="text-accent" />
+               Attestation Module
+            </h3>
+            <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Status: {att?.finalized ? 'AUTHENTICATED' : 'SYNC_REQUIRED'}</p>
+         </div>
       </div>
 
       {att?.finalized ? (
-        <div className="text-xs text-gray-500">
-          <p>Node: <span className="font-mono text-gray-400">{att.node.slice(0, 10)}…{att.node.slice(-8)}</span></p>
-          <p className="mt-1 break-all">Hash: <span className="font-mono text-gray-400">{att.nfcHash}</span></p>
+        <div className="space-y-4">
+           <div className="p-4 border border-green-900 bg-green-500/5 flex gap-4">
+              <SealCheck size={20} className="text-green-500 shrink-0" />
+              <div className="space-y-1">
+                 <p className="text-[10px] font-mono font-bold text-green-500 uppercase">Hardware Attestation Confirmed</p>
+                 <p className="text-[9px] font-mono text-green-700/70 truncate uppercase tracking-tighter">NODE_ID: {att.node}</p>
+              </div>
+           </div>
         </div>
       ) : nodeInfo?.active && !submitted ? (
-        <div className="flex flex-col gap-2">
-          <input
-            type="text"
-            placeholder="NFC tag data"
-            value={nfcTag}
-            onChange={e => setNfcTag(e.target.value)}
-            className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs font-mono focus:outline-none focus:border-indigo-500"
-          />
+        <div className="space-y-6">
+          <div className="bg-black border border-zinc-900 p-6 space-y-2">
+             <label className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-[0.2em]">NFC Payload Seed</label>
+             <input
+               type="text"
+               value={nfcTag}
+               onChange={e => setNfcTag(e.target.value)}
+               placeholder="RAW_STRING_DATA"
+               className="w-full bg-transparent text-xl font-bold font-mono text-white outline-none placeholder:text-zinc-800"
+             />
+          </div>
           <button
             disabled={submitting || !nfcTag}
             onClick={handleVerify}
-            className="rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 text-xs font-semibold transition-colors"
+            className="w-full h-14 bg-accent hover:bg-blue-400 text-white font-bold text-[11px] tracking-[0.3em] uppercase transition-all active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3"
           >
-            {submitting ? "Submitting…" : "Submit Verification"}
+            {submitting ? <CircleNotch size={18} className="animate-spin" /> : <ArrowRight size={18} />}
+            {submitting ? "Processing..." : "Submit Proof of Authenticity"}
           </button>
         </div>
       ) : submitted ? (
-        <p className="text-xs text-green-400">Verification submitted. Trade settled.</p>
+        <div className="p-4 border border-green-900 bg-green-500/5 text-center">
+           <p className="text-[10px] font-mono font-bold text-green-500 uppercase">Synchronization Successful</p>
+        </div>
       ) : (
-        <p className="text-xs text-gray-500">
-          Only registered verifier nodes can submit. <a href="/verify" className="text-indigo-400 hover:underline">Register →</a>
-        </p>
+        <div className="p-4 border border-zinc-900 bg-zinc-950/50 flex gap-4">
+           <Info size={20} className="text-zinc-700" />
+           <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest leading-relaxed">
+              ONLY_AUTHORIZED_DEPIN_NODES_CAN_EXECUTE_ATTESTATION. <Link href="/verify" className="text-accent hover:underline">REGISTER_NODE {">>>"}</Link>
+           </p>
+        </div>
       )}
     </div>
   );

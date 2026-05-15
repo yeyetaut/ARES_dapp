@@ -41,7 +41,10 @@ export const DIGITAL_TWIN_ABI = [
   { name: "getApproved",  type: "function", stateMutability: "view",       inputs: [{ name: "tokenId", type: "uint256" }],                                                                             outputs: [{ type: "address" }] },
   { name: "minters",      type: "function", stateMutability: "view",       inputs: [{ name: "addr", type: "address" }],                                                                               outputs: [{ type: "bool" }] },
   { name: "nfcHashToTokenId", type: "function", stateMutability: "view",   inputs: [{ name: "hash", type: "bytes32" }],                                                                               outputs: [{ type: "uint256" }] },
+  { name: "tokenIdToNfcHash", type: "function", stateMutability: "view",   inputs: [{ name: "tokenId", type: "uint256" }],                                                                           outputs: [{ type: "bytes32" }] },
   { name: "TwinMinted",   type: "event",    inputs: [{ name: "tokenId", type: "uint256", indexed: true }, { name: "to", type: "address", indexed: true }, { name: "nfcHash", type: "bytes32", indexed: false }, { name: "metadataURI", type: "string", indexed: false }] },
+  { name: "NotAuthorisedMinter", type: "error", inputs: [] },
+  { name: "TagAlreadyRegistered", type: "error", inputs: [] },
 ] as const;
 
 export const ESCROW_ABI = [
@@ -69,6 +72,14 @@ export const ESCROW_ABI = [
   { name: "EscrowReleased", type: "event", inputs: [{ name: "escrowId", type: "uint256", indexed: true }, { name: "seller", type: "address", indexed: true }, { name: "amount", type: "uint256", indexed: false }] },
   { name: "EscrowRefunded", type: "event", inputs: [{ name: "escrowId", type: "uint256", indexed: true }, { name: "buyer", type: "address", indexed: true }, { name: "amount", type: "uint256", indexed: false }] },
   { name: "EscrowDisputed", type: "event", inputs: [{ name: "escrowId", type: "uint256", indexed: true }, { name: "buyer", type: "address", indexed: true }] },
+  { name: "OnlyMarketplace", type: "error", inputs: [] },
+  { name: "OnlyBuyer", type: "error", inputs: [] },
+  { name: "WrongState", type: "error", inputs: [{ name: "current", type: "uint8" }] },
+  { name: "TimeoutNotReached", type: "error", inputs: [] },
+  { name: "TransferFailed", type: "error", inputs: [] },
+  { name: "ZeroAmount", type: "error", inputs: [] },
+  { name: "MarketplaceAlreadySet", type: "error", inputs: [] },
+  { name: "NotSeller", type: "error", inputs: [] },
 ] as const;
 
 export const MARKETPLACE_ABI = [
@@ -97,6 +108,10 @@ export const MARKETPLACE_ABI = [
   { name: "ItemSold",     type: "event", inputs: [{ name: "listingId", type: "uint256", indexed: true }, { name: "escrowId", type: "uint256", indexed: true }, { name: "buyer", type: "address", indexed: true }] },
   { name: "ListingCancelled", type: "event", inputs: [{ name: "listingId", type: "uint256", indexed: true }] },
   { name: "DeliveryConfirmed", type: "event", inputs: [{ name: "escrowId", type: "uint256", indexed: true }, { name: "buyer", type: "address", indexed: true }] },
+  { name: "NotActive", type: "error", inputs: [] },
+  { name: "NotAuthorised", type: "error", inputs: [] },
+  { name: "SelfPurchase", type: "error", inputs: [] },
+  { name: "ZeroPrice", type: "error", inputs: [] },
 ] as const;
 
 export const AGENT_REGISTRY_ABI = [
@@ -155,6 +170,9 @@ export const AGENT_ACCOUNT_ABI = [
   { name: "setPolicy",      type: "function", stateMutability: "nonpayable", inputs: [{ name: "_maxSingleTrade", type: "uint256" }, { name: "_dailyBudget", type: "uint256" }],      outputs: [] },
   { name: "setAutoBuyPolicy", type: "function", stateMutability: "nonpayable", inputs: [{ name: "maxPrice", type: "uint256" }, { name: "active", type: "bool" }],              outputs: [] },
   { name: "setExecutor",    type: "function", stateMutability: "nonpayable", inputs: [{ name: "executor", type: "address" }, { name: "authorised", type: "bool" }],                 outputs: [] },
+  { name: "NotOwner", type: "error", inputs: [] },
+  { name: "NotAuthorised", type: "error", inputs: [] },
+  { name: "PolicyViolation", type: "error", inputs: [{ name: "reason", type: "string" }] },
 ] as const;
 
 export const VERIFIER_ABI = [
@@ -193,6 +211,12 @@ export const VERIFIER_ABI = [
   { name: "NodeDeregistered",   type: "event",    inputs: [{ name: "node",    type: "address", indexed: true }, { name: "returned", type: "uint256", indexed: false }] },
   { name: "VerificationSubmitted", type: "event", inputs: [{ name: "escrowId", type: "uint256", indexed: true }, { name: "node", type: "address", indexed: true }, { name: "nfcHash", type: "bytes32", indexed: false }] },
   { name: "NodeSlashed",        type: "event",    inputs: [{ name: "node",    type: "address", indexed: true }, { name: "amount", type: "uint256", indexed: false }, { name: "reason", type: "string", indexed: false }] },
+  { name: "InsufficientStake", type: "error", inputs: [] },
+  { name: "NotActiveNode", type: "error", inputs: [] },
+  { name: "AlreadyVerified", type: "error", inputs: [] },
+  { name: "NotVerified", type: "error", inputs: [] },
+  { name: "InvalidNfcHash", type: "error", inputs: [] },
+  { name: "TransferFailed", type: "error", inputs: [] },
 ] as const;
 
 export const REPUTATION_ABI = [
@@ -215,6 +239,8 @@ export const REPUTATION_ABI = [
   { name: "setAuthorized",  type: "function", stateMutability: "nonpayable", inputs: [{ name: "caller", type: "address" }, { name: "status", type: "bool" }],           outputs: [] },
   { name: "ReputationMinted", type: "event",  inputs: [{ name: "user",    type: "address", indexed: true }, { name: "tokenId", type: "uint256", indexed: true }] },
   { name: "ScoreUpdated",     type: "event",  inputs: [{ name: "user",    type: "address", indexed: true }, { name: "delta",   type: "int256",  indexed: false }, { name: "newScore", type: "int256", indexed: false }] },
+  { name: "Soulbound", type: "error", inputs: [] },
+  { name: "NotAuthorized", type: "error", inputs: [] },
 ] as const;
 
 export const STAKING_ABI = [
@@ -242,6 +268,13 @@ export const STAKING_ABI = [
   { name: "UnstakeInitiated", type: "event", inputs: [{ name: "staker", type: "address", indexed: true }, { name: "amount",  type: "uint256", indexed: false }, { name: "cooldownEnd", type: "uint256", indexed: false }] },
   { name: "Unstaked",         type: "event", inputs: [{ name: "staker", type: "address", indexed: true }, { name: "amount",  type: "uint256", indexed: false }] },
   { name: "Slashed",          type: "event", inputs: [{ name: "staker", type: "address", indexed: true }, { name: "amount",  type: "uint256", indexed: false }, { name: "reason", type: "string", indexed: false }] },
+  { name: "InsufficientStake", type: "error", inputs: [] },
+  { name: "AlreadyUnstaking", type: "error", inputs: [] },
+  { name: "NotUnstaking", type: "error", inputs: [] },
+  { name: "CooldownNotMet", type: "error", inputs: [] },
+  { name: "SlashExceedsStake", type: "error", inputs: [] },
+  { name: "TransferFailed", type: "error", inputs: [] },
+  { name: "ZeroAmount", type: "error", inputs: [] },
 ] as const;
 
 // ─── Escrow state enum ─────────────────────────────────────────────────────────

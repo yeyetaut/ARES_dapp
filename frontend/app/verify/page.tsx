@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldCheck, CheckCircle, Warning, MagnifyingGlass, 
   CircleNotch, Fingerprint, Info, ArrowRight, ListDashes,
-  Activity, Broadcast, HardDrive, Cpu, Terminal as TerminalIcon,
+  Pulse, Broadcast, HardDrive, Cpu, Terminal as TerminalIcon,
   Key, SealCheck
 } from "@phosphor-icons/react";
 import { keccak256, toBytes } from "viem";
@@ -353,7 +353,7 @@ export default function VerifyPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-zinc-900 pb-12">
           <div>
             <div className="flex items-center gap-4 text-accent text-[10px] font-mono font-bold tracking-[0.4em] uppercase mb-4">
-               <Activity size={14} />
+               <Pulse size={14} />
                <span>Active Telemetry Uplink</span>
                <Heartbeat />
             </div>

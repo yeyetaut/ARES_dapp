@@ -30,9 +30,11 @@ async function processListing(
       const budget = await AgentAccount.dailyBudget();
       const spent = await AgentAccount.dailySpent();
       const isExecutor = await AgentAccount.authorisedExecutors(executor.address);
+      const agentOwner = await AgentAccount.owner();
+      const isOwner = agentOwner.toLowerCase() === executor.address.toLowerCase();
 
       if (!policy.active) continue;
-      if (!isExecutor) {
+      if (!isExecutor && !isOwner) {
         // console.log(`Agent ${i} (${tbaAddr}) is not authorizing this executor. Skipping.`);
         continue;
       }

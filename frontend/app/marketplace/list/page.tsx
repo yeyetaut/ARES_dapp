@@ -10,8 +10,51 @@ import { ADDRESSES, MARKETPLACE_ABI, DIGITAL_TWIN_ABI, USDC_SCALE, isDeployed } 
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Tag, ShieldCheck, Coins, CheckCircle, 
-  CircleNotch, Info, ArrowRight, Robot 
+  CircleNotch, Info, ArrowRight, Robot, Pulse, SealCheck
 } from "@phosphor-icons/react";
+
+// ─── Tactical UI Components ──────────────────────────────────────────────────
+
+function Heartbeat() {
+  return (
+    <div className="flex items-center gap-1">
+       {[...Array(6)].map((_, i) => (
+         <motion.div
+           key={i}
+           animate={{ height: [4, 12, 4] }}
+           transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
+           className="w-1 bg-accent/40"
+         />
+       ))}
+    </div>
+  );
+}
+
+function TelemetryBox({ label, value, unit, status }: { label: string; value: string; unit?: string; status?: 'active' | 'warn' | 'dim' }) {
+  const statusColor = status === 'active' ? 'text-green-500' : status === 'warn' ? 'text-red-500' : 'text-zinc-600';
+  return (
+    <div className="border border-zinc-900 bg-black/40 p-4 font-mono">
+       <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] mb-1">// {label}</p>
+       <p className={`text-lg font-bold tracking-tight ${statusColor}`}>
+         {value} {unit && <span className="text-[10px] opacity-50 ml-1">{unit}</span>}
+       </p>
+    </div>
+  );
+}
+
+function SectionHeader({ title, subtitle, icon: Icon }: { title: string; subtitle: string; icon: any }) {
+  return (
+    <div className="flex items-start gap-4 mb-8">
+       <div className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400">
+          <Icon size={24} weight="duotone" />
+       </div>
+       <div>
+          <h2 className="text-xl font-bold tracking-tighter uppercase">{title}</h2>
+          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">{subtitle}</p>
+       </div>
+    </div>
+  );
+}
 
 type Step = "mint" | "approve" | "list" | "done";
 
@@ -35,7 +78,7 @@ export default function ListItemPage() {
   });
   useTxToast("Mint Twin", mintErr, minted, mintTxErr);
 
-  const nfcHash = nfcSeed ? keccak256(toBytes(nfcSeed)) : undefined;
+  const nfcHash = nfcSeed ? keccak256(toBytes(nfcSeed.trim())) : undefined;
 
   const { data: existingTwinId, refetch: refetchExisting } = useReadContract({
     address: ADDRESSES.digitalTwin,
@@ -133,40 +176,49 @@ export default function ListItemPage() {
   ];
 
   return (
-    <main className="flex flex-col min-h-screen bg-zinc-950 text-white">
+    <main className="flex flex-col min-h-screen bg-black text-white selection:bg-accent/30 selection:text-accent">
       <Nav />
 
-      <div className="max-w-2xl mx-auto w-full px-6 py-12">
-        <Link href="/marketplace" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest mb-8">
-          <ArrowLeft size={16} />
-          Back to Marketplace
-        </Link>
+      {/* Scanline Effect Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-50 opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,118,0.06))] bg-[length:100%_2px,3px_100%]" />
 
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tighter mb-4">List Physical Collectible</h1>
-          <p className="text-zinc-500 text-sm max-w-md">
-            Complete the secure listing process to tokenize your physical asset for autonomous agent trading.
-          </p>
+      <div className="max-w-3xl mx-auto w-full px-6 py-16 flex flex-col gap-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-zinc-900 pb-12">
+          <div>
+            <div className="flex items-center gap-4 text-accent text-[10px] font-mono font-bold tracking-[0.4em] uppercase mb-4">
+               <Pulse size={14} />
+               <span>Injection Protocol Active</span>
+               <Heartbeat />
+            </div>
+            <h1 className="text-5xl font-bold tracking-tighter uppercase italic leading-[0.8] mb-4">
+               Registry <br/> Enrollment
+            </h1>
+            <p className="text-zinc-500 font-mono text-[10px] max-w-sm uppercase tracking-widest leading-relaxed">
+               Secure sequence for physical-to-digital mapping. Authenticate hardware provenance and authorize marketplace liquidity custody.
+            </p>
+          </div>
+          <Link href="/marketplace" className="h-10 px-6 border border-zinc-800 bg-zinc-900 text-[10px] font-mono font-bold text-zinc-500 hover:text-white transition-all uppercase tracking-widest flex items-center gap-3">
+             <ArrowLeft size={14} /> Abort_Sequence
+          </Link>
         </div>
 
-        {/* Progress Bar */}
-        <div className="flex items-center justify-between mb-16 relative">
-          <div className="absolute top-1/2 left-0 w-full h-[1px] bg-zinc-900 -translate-y-1/2 z-0" />
+        {/* Progress Matrix */}
+        <div className="grid grid-cols-4 gap-px bg-zinc-900 border border-zinc-900 shadow-2xl">
           {steps.map((s, i) => {
             const Icon = s.icon;
             const isCompleted = steps.findIndex(x => x.key === step) > i || (step === "done");
             const isActive = step === s.key;
 
             return (
-              <div key={s.key} className="relative z-10 flex flex-col items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all duration-300 ${
-                  isActive ? "bg-accent border-accent shadow-[0_0_20px_rgba(59,130,246,0.3)]" :
-                  isCompleted ? "bg-green-500/10 border-green-500/50 text-green-500" :
+              <div key={s.key} className={`p-6 flex flex-col items-center gap-3 bg-black transition-all ${isActive ? 'bg-zinc-950' : ''}`}>
+                <div className={`w-8 h-8 flex items-center justify-center border transition-all ${
+                  isActive ? "bg-accent border-accent shadow-[0_0_15px_rgba(59,130,246,0.3)] text-white" :
+                  isCompleted ? "bg-green-900/10 border-green-900/50 text-green-500" :
                   "bg-zinc-950 border-zinc-900 text-zinc-700"
                 }`}>
-                  {isCompleted ? <CheckCircle size={20} weight="fill" /> : <Icon size={20} weight={isActive ? "bold" : "regular"} />}
+                  {isCompleted ? <CheckCircle size={16} weight="fill" /> : <Icon size={16} weight={isActive ? "bold" : "regular"} />}
                 </div>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? "text-white" : "text-zinc-600"}`}>
+                <span className={`text-[8px] font-mono font-bold uppercase tracking-[0.2em] ${isActive ? "text-white" : "text-zinc-600"}`}>
                   {s.label}
                 </span>
               </div>
@@ -174,51 +226,59 @@ export default function ListItemPage() {
           })}
         </div>
 
-        <div className="bg-zinc-900/30 border border-zinc-900 rounded-3xl p-8 md:p-12">
+        <div className="bg-zinc-950 border border-zinc-900 p-8 md:p-12 shadow-2xl relative overflow-hidden group">
+          {/* Visual background element */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none" />
+          
           <AnimatePresence mode="wait">
             {/* ── Step 1: Mint ── */}
             {step === "mint" && (
               <motion.div
                 key="mint"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-12"
               >
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Physical NFC Seed</label>
+                <SectionHeader title="Physical Binding" subtitle="Input terminal for NFC payload synchronization" icon={Tag} />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-zinc-900 border border-zinc-900">
+                  <div className="bg-black p-6 space-y-2">
+                    <label className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-[0.2em]">NFC Payload Seed</label>
                     <input
                       type="text"
                       value={nfcSeed}
                       onChange={(e) => setNfcSeed(e.target.value)}
-                      placeholder="e.g. UNIQUE-TAG-ID-123"
-                      className="w-full bg-black border border-zinc-800 rounded-2xl px-5 py-4 text-sm font-mono focus:border-accent outline-none transition-colors"
+                      placeholder="RAW_STRING_DATA"
+                      className="w-full bg-transparent text-xl font-bold font-mono text-white outline-none placeholder:text-zinc-800"
                     />
-                    <div className="flex items-center gap-2 text-[10px] text-zinc-600 font-medium">
-                       <Info size={14} />
-                       <span>This creates a unique on-chain hash for physical verification.</span>
-                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Metadata IPFS URI</label>
+                  <div className="bg-black p-6 space-y-2">
+                    <label className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-[0.2em]">Metadata Protocol URI</label>
                     <input
                       type="text"
                       value={metadataURI}
                       onChange={(e) => setMetadataURI(e.target.value)}
                       placeholder="ipfs://Qm..."
-                      className="w-full bg-black border border-zinc-800 rounded-2xl px-5 py-4 text-sm font-mono focus:border-accent outline-none transition-colors"
+                      className="w-full bg-transparent text-xl font-bold font-mono text-white outline-none placeholder:text-zinc-800"
                     />
                   </div>
                 </div>
 
+                <div className="p-4 border border-blue-900/30 bg-blue-500/5 flex gap-4">
+                   <Info size={20} className="text-blue-500 shrink-0" />
+                   <p className="text-[10px] font-mono text-zinc-500 leading-relaxed uppercase tracking-wider">
+                      This sequence generates a unique cryptographic hash that will be permanently stored on-chain for DePIN hardware verification.
+                   </p>
+                </div>
+
                 {existingTwinId != null && existingTwinId > 0n && (
-                  <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 flex items-start gap-4">
-                     <Info size={20} className="text-accent mt-0.5" />
+                  <div className="p-6 border border-yellow-900/50 bg-yellow-950/10 flex items-start gap-4">
+                     <Info size={24} className="text-yellow-500 mt-0.5" />
                      <div className="space-y-1">
-                        <p className="text-xs font-bold text-white">Item Already Registered</p>
-                        <p className="text-xs text-zinc-500">This NFC tag is already linked to Digital Twin #{existingTwinId.toString()}. You can proceed directly to listing.</p>
+                        <p className="text-xs font-mono font-bold text-white uppercase tracking-widest">DUPLICATE_TAG_DETECTED</p>
+                        <p className="text-[10px] font-mono text-zinc-500 uppercase">This hardware payload is already registered as ADT #{existingTwinId.toString()}.</p>
                      </div>
                   </div>
                 )}
@@ -236,31 +296,29 @@ export default function ListItemPage() {
                           args: [address, nfcHash, metadataURI],
                         });
                       }}
-                      className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(59,130,246,0.1)] flex items-center justify-center gap-3"
+                      className="w-full h-16 bg-accent hover:bg-blue-400 text-white font-bold text-[12px] tracking-[0.4em] uppercase transition-all active:translate-y-px disabled:opacity-20 flex items-center justify-center gap-4"
                     >
-                      {minting ? <CircleNotch size={18} className="animate-spin" /> : <Tag size={18} weight="bold" />}
-                      {minting ? "Minting Protocol..." : "Initialize Digital Twin"}
+                      {minting ? <CircleNotch size={20} className="animate-spin" /> : <Tag size={20} weight="bold" />}
+                      {minting ? "Executing Mint..." : "Initialize Digital Twin"}
                     </button>
                   )}
-
-                  {/* Auto-jumping logic is active, so manual continue is redundant */}
                 </div>
 
                 <div className="pt-8 border-t border-zinc-900">
-                  <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-4">Manual Entry (Advanced)</p>
-                  <div className="flex gap-3">
+                  <p className="text-[9px] font-mono font-bold text-zinc-700 uppercase tracking-widest mb-6">// Manual ID Intervention</p>
+                  <div className="flex gap-4">
                     <input
                       type="number"
-                      placeholder="Twin ID"
-                      className="flex-1 bg-black border border-zinc-800 rounded-xl px-4 py-2 text-xs font-mono outline-none"
+                      placeholder="ID_000"
+                      className="w-32 bg-zinc-900 border border-zinc-800 p-4 font-mono text-xs outline-none focus:border-accent text-center"
                       onChange={(e) => setTwinId(e.target.value ? BigInt(e.target.value) : null)}
                     />
                     <button
                       disabled={!twinId}
                       onClick={() => setStep("approve")}
-                      className="px-6 py-2 rounded-xl border border-zinc-800 hover:bg-zinc-900 disabled:opacity-30 text-[10px] font-bold uppercase tracking-widest transition-all"
+                      className="flex-1 bg-zinc-900 border border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
                     >
-                      Use ID
+                      Use Manual Assignment
                     </button>
                   </div>
                 </div>
@@ -271,41 +329,41 @@ export default function ListItemPage() {
             {step === "approve" && (
               <motion.div
                 key="approve"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-12 py-8"
               >
-                <div className="flex flex-col items-center text-center gap-4">
-                   <div className="w-16 h-16 rounded-3xl bg-zinc-950 border border-zinc-900 flex items-center justify-center text-accent">
-                      <ShieldCheck size={32} weight="duotone" />
+                <div className="flex flex-col items-center text-center gap-6">
+                   <div className="w-20 h-20 border border-accent/30 bg-accent/5 flex items-center justify-center text-accent">
+                      <ShieldCheck size={40} weight="duotone" />
                    </div>
-                   <div className="space-y-1">
-                      <h3 className="text-xl font-bold">Authorise Marketplace</h3>
-                      <p className="text-sm text-zinc-500">You must grant the marketplace permission to custody Twin #{twinId?.toString()} during the sale.</p>
+                   <div className="space-y-3">
+                      <h3 className="text-2xl font-bold tracking-tighter uppercase italic">Custody Authorization</h3>
+                      <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest max-w-sm mx-auto leading-relaxed">
+                         Granting marketplace protocol temporary custody of ADT #{twinId?.toString()} for trade settlement.
+                      </p>
                    </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  {!approvedNFT && (
-                    <button
-                      disabled={approvingNFT || !contractsDeployed || !twinId}
-                      onClick={() => {
-                        if (!twinId) return;
-                        approveNFT({
-                          address: ADDRESSES.digitalTwin,
-                          abi: DIGITAL_TWIN_ABI,
-                          functionName: "approve",
-                          args: [ADDRESSES.marketplace, twinId],
-                        });
-                      }}
-                      className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
-                    >
-                      {approvingNFT ? <CircleNotch size={18} className="animate-spin" /> : <ShieldCheck size={18} weight="bold" />}
-                      {approvingNFT ? "Authorizing..." : "Approve Protocol"}
-                    </button>
-                  )}
-                </div>
+                {!approvedNFT && (
+                  <button
+                    disabled={approvingNFT || !contractsDeployed || !twinId}
+                    onClick={() => {
+                      if (!twinId) return;
+                      approveNFT({
+                        address: ADDRESSES.digitalTwin,
+                        abi: DIGITAL_TWIN_ABI,
+                        functionName: "approve",
+                        args: [ADDRESSES.marketplace, twinId],
+                      });
+                    }}
+                    className="w-full h-16 bg-accent hover:bg-blue-400 text-white font-bold text-[12px] tracking-[0.4em] uppercase transition-all active:translate-y-px disabled:opacity-20 flex items-center justify-center gap-4"
+                  >
+                    {approvingNFT ? <CircleNotch size={20} className="animate-spin" /> : <ShieldCheck size={20} weight="bold" />}
+                    {approvingNFT ? "Authorizing Protocol..." : "Grant Custody Permissions"}
+                  </button>
+                )}
               </motion.div>
             )}
 
@@ -313,60 +371,60 @@ export default function ListItemPage() {
             {step === "list" && (
               <motion.div
                 key="list"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-12"
               >
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Listing Price (USDC)</label>
-                    <div className="relative">
+                <SectionHeader title="Capital Configuration" subtitle="Define liquidity requirements for registry entry" icon={Coins} />
+
+                <div className="space-y-8">
+                  <div className="bg-black border border-zinc-900 p-8 space-y-4">
+                    <label className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-[0.2em]">Listing Valuation (USDC)</label>
+                    <div className="relative border-b border-zinc-800 pb-2">
                       <input
                         type="number"
                         min="0.01"
                         step="0.01"
                         value={priceInput}
                         onChange={(e) => setPriceInput(e.target.value)}
-                        placeholder="100.00"
-                        className="w-full bg-black border border-zinc-800 rounded-2xl pl-5 pr-16 py-4 text-sm font-mono focus:border-accent outline-none transition-colors"
+                        className="w-full bg-transparent text-4xl font-bold font-mono text-white outline-none placeholder:text-zinc-900"
+                        placeholder="0.00"
                       />
-                      <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-600">USDC</span>
+                      <span className="absolute right-0 bottom-4 text-xs font-mono font-bold text-zinc-600 uppercase">USDC</span>
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-900 space-y-3">
-                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                        <span className="text-zinc-600">Asset ID</span>
-                        <span className="text-white">ADT #{twinId?.toString()}</span>
-                     </div>
-                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                        <span className="text-zinc-600">Protocol Fee</span>
-                        <span className="text-green-500">0.00 USDC (0%)</span>
-                     </div>
+                  <div className="grid grid-cols-2 gap-px bg-zinc-900 border border-zinc-900">
+                    <div className="bg-black p-6 flex flex-col gap-1">
+                        <span className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest">Target Asset</span>
+                        <span className="text-sm font-mono font-bold text-white uppercase tracking-tighter">ADT #{twinId?.toString()}</span>
+                    </div>
+                    <div className="bg-black p-6 flex flex-col gap-1 text-right">
+                        <span className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest">Protocol Fee</span>
+                        <span className="text-sm font-mono font-bold text-green-500 uppercase tracking-tighter">0.00 (0%)</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  {!listed && (
-                    <button
-                      disabled={!priceInput || priceRaw === 0n || listing || !contractsDeployed || !twinId}
-                      onClick={() => {
-                        if (!twinId || !metadataURI) return;
-                        list({
-                          address: ADDRESSES.marketplace,
-                          abi: MARKETPLACE_ABI,
-                          functionName: "listItem",
-                          args: [twinId, priceRaw, metadataURI],
-                        });
-                      }}
-                      className="w-full rounded-2xl bg-accent hover:bg-blue-400 disabled:opacity-20 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
-                    >
-                      {listing ? <CircleNotch size={18} className="animate-spin" /> : <Tag size={18} weight="bold" />}
-                      {listing ? "Publishing..." : "Create Live Listing"}
-                    </button>
-                  )}
-                </div>
+                {!listed && (
+                  <button
+                    disabled={!priceInput || priceRaw === 0n || listing || !contractsDeployed || !twinId}
+                    onClick={() => {
+                      if (!twinId || !metadataURI) return;
+                      list({
+                        address: ADDRESSES.marketplace,
+                        abi: MARKETPLACE_ABI,
+                        functionName: "listItem",
+                        args: [twinId, priceRaw, metadataURI],
+                      });
+                    }}
+                    className="w-full h-16 bg-accent hover:bg-blue-400 text-white font-bold text-[12px] tracking-[0.4em] uppercase transition-all active:translate-y-px disabled:opacity-20 flex items-center justify-center gap-4"
+                  >
+                    {listing ? <CircleNotch size={20} className="animate-spin" /> : <Tag size={20} weight="bold" />}
+                    {listing ? "Publishing to Registry..." : "Broadcast Live Listing"}
+                  </button>
+                )}
               </motion.div>
             )}
 
@@ -374,25 +432,24 @@ export default function ListItemPage() {
             {step === "done" && (
               <motion.div
                 key="done"
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center text-center py-8 gap-8"
+                className="flex flex-col items-center text-center py-12 gap-10"
               >
-                <div className="relative">
-                   <div className="absolute inset-0 bg-green-500 blur-3xl opacity-20" />
-                   <div className="w-24 h-24 rounded-full bg-green-500/10 border-2 border-green-500 flex items-center justify-center text-green-500 relative z-10">
-                      <CheckCircle size={48} weight="fill" />
-                   </div>
+                <div className="w-24 h-24 border border-green-900 bg-green-500/5 flex items-center justify-center text-green-500">
+                   <SealCheck size={56} weight="fill" />
                 </div>
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-bold tracking-tight text-white">Asset Listed</h2>
-                  <p className="text-sm text-zinc-500 max-w-xs mx-auto">Your Digital Twin is now live and available for autonomous AI agent trading.</p>
+                <div className="space-y-3">
+                  <h2 className="text-3xl font-bold tracking-tighter uppercase italic">Protocol Finalized</h2>
+                  <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
+                     Digital Twin is now live in the global registry and available for autonomous agent trade cycles.
+                  </p>
                 </div>
                 <Link
                   href="/marketplace"
-                  className="rounded-2xl bg-white text-black hover:bg-zinc-200 px-10 py-4 text-xs font-bold uppercase tracking-[0.2em] transition-all"
+                  className="h-14 px-12 bg-white text-black hover:bg-zinc-200 text-[11px] font-mono font-bold uppercase tracking-[0.3em] transition-all flex items-center justify-center"
                 >
-                  Return to Marketplace
+                  Return to Exchange
                 </Link>
               </motion.div>
             )}
@@ -400,10 +457,14 @@ export default function ListItemPage() {
         </div>
       </div>
 
-      <footer className="max-w-2xl mx-auto w-full px-6 py-12 text-center">
-        <p className="text-[10px] font-bold tracking-[0.2em] text-zinc-600 uppercase">
-          ARES PROTOCOL • v1.0.4-LOCKED • HKUST BLOCKCHAIN LAB
+      <footer className="max-w-6xl mx-auto w-full px-6 py-12 border-t border-zinc-900 flex justify-between items-center opacity-30 grayscale hover:opacity-100 transition-all">
+        <p className="text-[9px] font-mono font-bold tracking-[0.3em] text-zinc-500 uppercase">
+          ARES PROTOCOL • HKUST BLOCKCHAIN LAB • END_OF_LINE
         </p>
+        <div className="flex gap-6 font-mono text-[9px] text-zinc-500 uppercase font-bold tracking-widest">
+           <span>Lat: 22.3364° N</span>
+           <span>Long: 114.2655° E</span>
+        </div>
       </footer>
     </main>
   );
